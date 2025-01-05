@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export const useAuthSession = () => {
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -50,12 +50,14 @@ export const useAuthSession = () => {
     // Get initial session
     const initializeSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('Checking for existing session...');
+        const { data: { session: existingSession }, error } = await supabase.auth.getSession();
         if (error) throw error;
         
         if (mounted) {
-          if (session?.user) {
-            console.log('Initial session check:', session.user.id);
+          if (existingSession?.user) {
+            console.log('Found existing session for user:', existingSession.user.id);
+            setLoading(true);
             // Verify the session is still valid
             const { data: { user }, error: userError } = await supabase.auth.getUser();
             if (userError) throw userError;
@@ -63,8 +65,8 @@ export const useAuthSession = () => {
             if (!user) {
               throw new Error('User not found');
             }
+            setSession(existingSession);
           }
-          setSession(session);
           setLoading(false);
         }
       } catch (error: any) {
@@ -106,6 +108,7 @@ export const useAuthSession = () => {
       if (_event === 'SIGNED_IN') {
         // Ensure we have a valid user before setting the session
         try {
+          setLoading(true);
           const { data: { user }, error: userError } = await supabase.auth.getUser();
           if (userError) throw userError;
           
@@ -118,6 +121,8 @@ export const useAuthSession = () => {
         } catch (error) {
           console.error('Sign in verification error:', error);
           await handleAuthError(error);
+        } finally {
+          setLoading(false);
         }
         return;
       }
@@ -125,6 +130,7 @@ export const useAuthSession = () => {
       // For all other events, update the session if valid
       try {
         if (session?.user) {
+          setLoading(true);
           // Verify the session is still valid
           const { data: { user }, error: userError } = await supabase.auth.getUser();
           if (userError) throw userError;
@@ -137,6 +143,8 @@ export const useAuthSession = () => {
       } catch (error) {
         console.error('Session verification error:', error);
         await handleAuthError(error);
+      } finally {
+        setLoading(false);
       }
     });
 
