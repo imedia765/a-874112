@@ -6,6 +6,7 @@ import MembersList from '@/components/MembersList';
 import MemberSearch from '@/components/MemberSearch';
 import CollectorsList from '@/components/CollectorsList';
 import AuditLogsView from '@/components/AuditLogsView';
+import SystemToolsView from '@/components/SystemToolsView';
 import SidePanel from '@/components/SidePanel';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useToast } from "@/hooks/use-toast";
@@ -99,6 +100,8 @@ const Index = () => {
         );
       case 'audit':
         return <AuditLogsView />;
+      case 'system':
+        return <SystemToolsView />;
       default:
         return null;
     }

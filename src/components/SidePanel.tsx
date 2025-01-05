@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LayoutDashboard, Settings, Users, UserCheck, History, LogOut } from "lucide-react";
+import { LayoutDashboard, Settings, Users, UserCheck, History, LogOut, Database } from "lucide-react";
 import { UserRole } from "@/hooks/useRoleAccess";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -68,6 +68,12 @@ const SidePanel = ({ onTabChange, userRole }: SidePanelProps) => {
         value: 'audit',
         label: 'Audit Logs',
         icon: History,
+        roles: ['admin']
+      },
+      {
+        value: 'system',
+        label: 'System Tools',
+        icon: Database,
         roles: ['admin']
       },
       {

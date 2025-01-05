@@ -363,6 +363,24 @@ export type Database = {
         }
         Returns: string
       }
+      audit_security_settings: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          check_type: string
+          status: string
+          details: Json
+        }[]
+      }
+      check_member_numbers: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          issue_type: string
+          description: string
+          affected_table: string
+          member_number: string
+          details: Json
+        }[]
+      }
       generate_full_backup: {
         Args: Record<PropertyKey, never>
         Returns: Json
