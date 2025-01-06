@@ -5,16 +5,19 @@ import UserRoleCard from './UserRoleCard';
 import { supabase } from "@/integrations/supabase/client";
 import RoleManagementHeader from './RoleManagementHeader';
 import { useToast } from "@/hooks/use-toast";
+import { Database } from "@/integrations/supabase/types";
+
+type UserRole = Database['public']['Enums']['app_role'];
 
 interface UserData {
   id: string;
   user_id: string;
   full_name: string;
   member_number: string;
-  role: 'admin' | 'collector' | 'member';
-  roles?: ('admin' | 'collector' | 'member')[];
+  role: UserRole;
+  roles?: UserRole[];
   auth_user_id: string;
-  user_roles: { role: 'admin' | 'collector' | 'member' }[];
+  user_roles: { role: UserRole }[];
 }
 
 const RoleManagementList = () => {
@@ -28,7 +31,12 @@ const RoleManagementList = () => {
       console.log('Fetching users with search term:', searchTerm);
       let query = supabase
         .from('members')
-        .select('*, user_roles(role)')
+        .select(`
+          *,
+          user_roles (
+            role
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (searchTerm) {
@@ -45,12 +53,12 @@ const RoleManagementList = () => {
       // Transform the data to match the expected format
       return (data || []).map((user): UserData => ({
         id: user.id,
-        user_id: user.auth_user_id,
+        user_id: user.auth_user_id || '',
         full_name: user.full_name,
         member_number: user.member_number,
         role: user.user_roles?.[0]?.role || 'member',
-        auth_user_id: user.auth_user_id,
-        user_roles: user.user_roles || []
+        auth_user_id: user.auth_user_id || '',
+        user_roles: Array.isArray(user.user_roles) ? user.user_roles : []
       }));
     },
   });
