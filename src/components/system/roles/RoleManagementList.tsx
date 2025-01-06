@@ -30,52 +30,83 @@ const RoleManagementList = () => {
     queryFn: async () => {
       console.log('Fetching users with search term:', searchTerm);
       
-      // First get all members
-      let query = supabase
-        .from('members')
-        .select('*')
-        .order('created_at', { ascending: false });
+      try {
+        // First verify if current user has admin access
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
 
-      if (searchTerm) {
-        query = query.or(`full_name.ilike.%${searchTerm}%,member_number.ilike.%${searchTerm}%`);
-      }
-
-      const { data: membersData, error: membersError } = await query;
-
-      if (membersError) {
-        console.error('Error fetching members:', membersError);
-        throw membersError;
-      }
-
-      // Then get roles for each member
-      const usersWithRoles = await Promise.all(membersData.map(async (member) => {
-        if (!member.auth_user_id) return { ...member, user_roles: [] };
-
-        const { data: roleData, error: roleError } = await supabase
+        const { data: currentUserRoles, error: rolesError } = await supabase
           .from('user_roles')
           .select('role')
-          .eq('user_id', member.auth_user_id);
+          .eq('user_id', user.id);
 
-        if (roleError) {
-          console.error('Error fetching roles for member:', member.member_number, roleError);
-          return { ...member, user_roles: [] };
+        if (rolesError) throw rolesError;
+
+        const isAdmin = currentUserRoles?.some(role => role.role === 'admin');
+        if (!isAdmin) {
+          throw new Error('Unauthorized: Admin access required');
         }
 
-        return {
-          ...member,
-          user_roles: roleData || []
-        };
-      }));
+        // Then get all members
+        let query = supabase
+          .from('members')
+          .select('*')
+          .order('created_at', { ascending: false });
 
-      return usersWithRoles.map((user): UserData => ({
-        id: user.id,
-        user_id: user.auth_user_id || '',
-        full_name: user.full_name,
-        member_number: user.member_number,
-        role: user.user_roles[0]?.role || 'member',
-        auth_user_id: user.auth_user_id || '',
-        user_roles: user.user_roles
-      }));
+        if (searchTerm) {
+          query = query.or(`full_name.ilike.%${searchTerm}%,member_number.ilike.%${searchTerm}%`);
+        }
+
+        const { data: membersData, error: membersError } = await query;
+
+        if (membersError) {
+          console.error('Error fetching members:', membersError);
+          throw membersError;
+        }
+
+        // Then get roles for each member
+        const usersWithRoles = await Promise.all(membersData.map(async (member) => {
+          if (!member.auth_user_id) return { ...member, user_roles: [] };
+
+          try {
+            const { data: roleData, error: roleError } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', member.auth_user_id);
+
+            if (roleError) {
+              console.error('Error fetching roles for member:', member.member_number, roleError);
+              return { ...member, user_roles: [] };
+            }
+
+            return {
+              ...member,
+              user_roles: roleData || []
+            };
+          } catch (error) {
+            console.error('Error in role fetch:', error);
+            return { ...member, user_roles: [] };
+          }
+        }));
+
+        return usersWithRoles.map((user): UserData => ({
+          id: user.id,
+          user_id: user.auth_user_id || '',
+          full_name: user.full_name,
+          member_number: user.member_number,
+          role: user.user_roles[0]?.role || 'member',
+          auth_user_id: user.auth_user_id || '',
+          user_roles: user.user_roles
+        }));
+      } catch (error: any) {
+        console.error('Error in user fetch:', error);
+        toast({
+          title: "Error fetching users",
+          description: error.message,
+          variant: "destructive",
+        });
+        return [];
+      }
     },
   });
 
