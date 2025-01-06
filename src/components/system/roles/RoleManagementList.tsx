@@ -1,112 +1,73 @@
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import UserRoleCard from './UserRoleCard';
 import { supabase } from "@/integrations/supabase/client";
-import { Database } from "@/integrations/supabase/types";
-import { useToast } from "@/hooks/use-toast";
+import RoleManagementHeader from './RoleManagementHeader';
+import { useToast } from "@/components/ui/use-toast";
 
-interface UserWithRoles {
-  user_id: string;
-  full_name: string;
-  member_number: string;
-  roles?: Database['public']['Enums']['app_role'][];
-  role: Database['public']['Enums']['app_role'];
-}
-
-export const RoleManagementList = () => {
-  const { toast } = useToast();
+const RoleManagementList = () => {
+  const [searchTerm, setSearchTerm] = useState('');
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  const handleRoleChange = async (userId: string, newRole: Database['public']['Enums']['app_role']) => {
-    try {
-      console.log('Updating role for user:', userId, 'to:', newRole);
-      
-      // First delete existing roles
-      const { error: deleteError } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
-
-      if (deleteError) {
-        console.error('Error deleting existing roles:', deleteError);
-        throw deleteError;
-      }
-
-      // Then insert new role
-      const { error: insertError } = await supabase
-        .from('user_roles')
-        .insert({ user_id: userId, role: newRole });
-
-      if (insertError) {
-        console.error('Error inserting new role:', insertError);
-        throw insertError;
-      }
-
-      await queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
-      
-      toast({
-        title: "Role Updated",
-        description: `Successfully updated user role to ${newRole}`,
-      });
-    } catch (error: any) {
-      console.error('Error updating role:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update role",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const { data: users } = useQuery({
-    queryKey: ['users-with-roles'],
+  const { data: users, isLoading } = useQuery({
+    queryKey: ['users', searchTerm],
     queryFn: async () => {
-      console.log('Fetching users with roles...');
-      
-      const { data: members, error: membersError } = await supabase
+      console.log('Fetching users with search term:', searchTerm);
+      let query = supabase
         .from('members')
-        .select('auth_user_id, full_name, member_number');
+        .select('*, user_roles(role)')
+        .order('created_at', { ascending: false });
 
-      if (membersError) throw membersError;
+      if (searchTerm) {
+        query = query.or(`full_name.ilike.%${searchTerm}%,member_number.ilike.%${searchTerm}%`);
+      }
 
-      const userIds = members.map(m => m.auth_user_id).filter(Boolean);
-      
-      const { data: roles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
+      const { data, error } = await query;
 
-      if (rolesError) throw rolesError;
+      if (error) {
+        console.error('Error fetching users:', error);
+        throw error;
+      }
 
-      const usersWithRoles = members
-        .filter(m => m.auth_user_id) // Only include members with auth_user_id
-        .map(member => {
-          const userRoles = roles.filter(role => role.user_id === member.auth_user_id);
-          const rolesList = userRoles.map(r => r.role);
-          return {
-            user_id: member.auth_user_id,
-            full_name: member.full_name,
-            member_number: member.member_number,
-            roles: rolesList,
-            role: rolesList.length > 0 ? rolesList[0] : 'member'
-          };
-        });
-
-      console.log('Users with roles:', usersWithRoles);
-      return usersWithRoles as UserWithRoles[];
-    }
+      return data || [];
+    },
   });
 
+  const handleSearchChange = (value: string) => {
+    console.log('Search term changed:', value);
+    setSearchTerm(value);
+  };
+
   return (
-    <ScrollArea className="h-[400px] w-full rounded-md pr-4">
-      <div className="space-y-4">
-        {users?.map((user) => (
-          <UserRoleCard
-            key={user.user_id}
-            user={user}
-            onRoleChange={handleRoleChange}
-          />
-        ))}
-      </div>
-    </ScrollArea>
+    <div className="space-y-6">
+      <RoleManagementHeader
+        searchTerm={searchTerm}
+        onSearchChange={handleSearchChange}
+      />
+      
+      <ScrollArea className="h-[600px]">
+        {isLoading ? (
+          <div className="flex justify-center items-center h-32">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dashboard-accent1"></div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {users?.map((user) => (
+              <UserRoleCard
+                key={user.id}
+                user={user}
+                onRoleChange={async () => {
+                  await queryClient.invalidateQueries({ queryKey: ['users'] });
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+    </div>
   );
 };
+
+export default RoleManagementList;
