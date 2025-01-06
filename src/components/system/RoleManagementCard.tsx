@@ -80,7 +80,7 @@ const RoleManagementCard = () => {
     try {
       console.log('Updating role for user:', userId, 'to:', newRole);
       
-      // Delete existing roles first
+      // First delete existing roles
       const { error: deleteError } = await supabase
         .from('user_roles')
         .delete()
@@ -91,7 +91,7 @@ const RoleManagementCard = () => {
         throw deleteError;
       }
 
-      // Insert new role
+      // Then insert new role
       const { error: insertError } = await supabase
         .from('user_roles')
         .insert({ 
@@ -111,6 +111,7 @@ const RoleManagementCard = () => {
 
       // Invalidate queries to refresh data
       await queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
+      await queryClient.invalidateQueries({ queryKey: ['userRole'] });
       await refetchUsers();
       
     } catch (error: any) {
