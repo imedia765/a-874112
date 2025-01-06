@@ -21,7 +21,7 @@ interface UserData {
 }
 
 type MemberWithRoles = Database['public']['Tables']['members']['Row'] & {
-  user_roles: { role: UserRole }[] | null;
+  user_roles: Array<{ role: UserRole }> | null;
 }
 
 const RoleManagementList = () => {
@@ -55,7 +55,8 @@ const RoleManagementList = () => {
       }
 
       // Transform the data to match the expected format
-      return (data as MemberWithRoles[] || []).map((user): UserData => ({
+      const typedData = data as unknown as MemberWithRoles[];
+      return typedData.map((user): UserData => ({
         id: user.id,
         user_id: user.auth_user_id || '',
         full_name: user.full_name,
