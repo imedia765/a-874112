@@ -15,20 +15,22 @@ interface UserData {
   full_name: string;
   member_number: string;
   role: UserRole;
-  roles?: UserRole[];
   auth_user_id: string;
   user_roles: Array<{ role: UserRole }>;
 }
 
+const ITEMS_PER_PAGE = 10;
+
 const RoleManagementList = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(0);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const { data: users, isLoading } = useQuery({
-    queryKey: ['users', searchTerm],
+    queryKey: ['users', searchTerm, page],
     queryFn: async () => {
-      console.log('Fetching users with search term:', searchTerm);
+      console.log('Fetching users with search term:', searchTerm, 'page:', page);
       
       try {
         // First verify if current user has admin access
@@ -47,11 +49,12 @@ const RoleManagementList = () => {
           throw new Error('Unauthorized: Admin access required');
         }
 
-        // Then get all members
+        // Then get paginated members
         let query = supabase
           .from('members')
           .select('*')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .range(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE - 1);
 
         if (searchTerm) {
           query = query.or(`full_name.ilike.%${searchTerm}%,member_number.ilike.%${searchTerm}%`);
@@ -110,20 +113,25 @@ const RoleManagementList = () => {
     },
   });
 
-  const handleSearchChange = (value: string) => {
-    console.log('Search term changed:', value);
-    setSearchTerm(value);
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight * 1.5) {
+      setPage(prev => prev + 1);
+    }
   };
 
   return (
     <div className="space-y-6">
       <RoleManagementHeader
         searchTerm={searchTerm}
-        onSearchChange={handleSearchChange}
+        onSearchChange={setSearchTerm}
       />
       
-      <ScrollArea className="h-[600px]">
-        {isLoading ? (
+      <ScrollArea 
+        className="h-[600px]"
+        onScroll={handleScroll}
+      >
+        {isLoading && page === 0 ? (
           <div className="flex justify-center items-center h-32">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dashboard-accent1"></div>
           </div>
@@ -138,6 +146,11 @@ const RoleManagementList = () => {
                 }}
               />
             ))}
+            {isLoading && page > 0 && (
+              <div className="flex justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-dashboard-accent1"></div>
+              </div>
+            )}
           </div>
         )}
       </ScrollArea>
