@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Shield, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -30,25 +30,34 @@ const RoleManagementCard = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
+  const queryClient = useQueryClient();
 
   const { data: users, refetch: refetchUsers } = useQuery({
     queryKey: ['users-with-roles', searchTerm, currentPage],
     queryFn: async () => {
+      console.log('Fetching users with roles...');
       const { data: members, error: membersError } = await supabase
         .from('members')
         .select('auth_user_id, full_name, member_number')
         .or(`full_name.ilike.%${searchTerm}%,member_number.ilike.%${searchTerm}%`)
         .range(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE - 1);
 
-      if (membersError) throw membersError;
+      if (membersError) {
+        console.error('Error fetching members:', membersError);
+        throw membersError;
+      }
 
       const userIds = members.map(m => m.auth_user_id).filter(Boolean);
+      
       const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role')
         .in('user_id', userIds);
 
-      if (rolesError) throw rolesError;
+      if (rolesError) {
+        console.error('Error fetching roles:', rolesError);
+        throw rolesError;
+      }
 
       const usersWithRoles = members.map(member => {
         const userRoles = roles.filter(role => role.user_id === member.auth_user_id);
@@ -69,25 +78,41 @@ const RoleManagementCard = () => {
 
   const handleRoleChange = async (userId: string, newRole: Database['public']['Enums']['app_role']) => {
     try {
+      console.log('Updating role for user:', userId, 'to:', newRole);
+      
+      // Delete existing roles first
       const { error: deleteError } = await supabase
         .from('user_roles')
         .delete()
         .eq('user_id', userId);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('Error deleting existing roles:', deleteError);
+        throw deleteError;
+      }
 
+      // Insert new role
       const { error: insertError } = await supabase
         .from('user_roles')
-        .insert({ user_id: userId, role: newRole });
+        .insert({ 
+          user_id: userId, 
+          role: newRole 
+        });
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('Error inserting new role:', insertError);
+        throw insertError;
+      }
 
       toast({
         title: "Role Updated",
         description: `Successfully updated user role to ${newRole}`,
       });
 
-      refetchUsers();
+      // Invalidate queries to refresh data
+      await queryClient.invalidateQueries({ queryKey: ['users-with-roles'] });
+      await refetchUsers();
+      
     } catch (error: any) {
       console.error('Error updating role:', error);
       toast({
