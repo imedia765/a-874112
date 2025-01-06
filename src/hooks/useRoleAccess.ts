@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom';
 export type UserRole = 'member' | 'collector' | 'admin' | null;
 
 const ROLE_STALE_TIME = 1000 * 60 * 5; // 5 minutes
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
 
 export const useRoleAccess = () => {
   const { toast } = useToast();
@@ -17,11 +19,13 @@ export const useRoleAccess = () => {
     queryKey: ['session'],
     queryFn: async () => {
       try {
+        console.log('Checking session status...');
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
         
-        // Verify session is still valid with a test request
         if (session) {
+          console.log('Found session for user:', session.user.id);
+          // Verify session is still valid
           const { error: userError } = await supabase.auth.getUser();
           if (userError) throw userError;
         }
@@ -29,13 +33,13 @@ export const useRoleAccess = () => {
         return session;
       } catch (error: any) {
         console.error('Session error:', error);
-        // Clear any existing session
         await supabase.auth.signOut();
         localStorage.clear();
         throw error;
       }
     },
-    retry: false
+    retry: MAX_RETRIES,
+    retryDelay: RETRY_DELAY,
   });
 
   // If session check fails, redirect to login
@@ -55,27 +59,41 @@ export const useRoleAccess = () => {
     queryKey: ['userRole', sessionData?.user?.id],
     queryFn: async () => {
       if (!sessionData?.user) {
-        console.log('No session found in central role check');
+        console.log('No session found in role check');
         return null;
       }
 
-      console.log('Session user in central role check:', sessionData.user.id);
-      console.log('User metadata:', sessionData.user.user_metadata);
-
+      console.log('Fetching roles for user:', sessionData.user.id);
+      
       try {
-        // First try to get roles from user_roles table
-        const { data: roleData, error: roleError } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', sessionData.user.id);
+        // First try to get roles from user_roles table with retries
+        let attempt = 0;
+        let roleData = null;
+        let lastError = null;
 
-        if (roleError) {
-          console.error('Error fetching roles from user_roles:', roleError);
-          throw roleError;
+        while (attempt < MAX_RETRIES && !roleData) {
+          try {
+            const { data, error } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', sessionData.user.id);
+
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+              console.log('Found roles:', data);
+              roleData = data;
+              break;
+            }
+          } catch (error) {
+            console.error(`Attempt ${attempt + 1} failed:`, error);
+            lastError = error;
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+          }
+          attempt++;
         }
 
-        // If we found roles, return the highest priority role
-        if (roleData && roleData.length > 0) {
+        if (roleData) {
           const roles = roleData.map(r => r.role);
           console.log('Found roles in user_roles table:', roles);
           
@@ -85,34 +103,30 @@ export const useRoleAccess = () => {
           if (roles.includes('member')) return 'member';
         }
 
-        // If no role in user_roles table, check if user is a collector
+        // Fallback to checking collector status
+        console.log('Checking collector status...');
         const { data: collectorData, error: collectorError } = await supabase
           .from('members_collectors')
           .select('name')
           .eq('member_number', sessionData.user.user_metadata.member_number)
           .maybeSingle();
 
-        if (collectorError) {
-          console.error('Error checking collector status:', collectorError);
-          throw collectorError;
-        }
+        if (collectorError) throw collectorError;
 
         if (collectorData) {
-          console.log('User is a collector based on members_collectors table');
+          console.log('User is a collector');
           return 'collector' as UserRole;
         }
 
-        // If still no role found, check if user exists in members table
+        // Final fallback - check members table
+        console.log('Checking member status...');
         const { data: memberData, error: memberError } = await supabase
           .from('members')
           .select('id')
           .eq('auth_user_id', sessionData.user.id)
           .maybeSingle();
 
-        if (memberError) {
-          console.error('Error checking member status:', memberError);
-          throw memberError;
-        }
+        if (memberError) throw memberError;
 
         if (memberData?.id) {
           console.log('User is a regular member');
@@ -128,10 +142,8 @@ export const useRoleAccess = () => {
     },
     enabled: !!sessionData?.user?.id,
     staleTime: ROLE_STALE_TIME,
-    retry: 1,
-    meta: {
-      errorMessage: "Failed to fetch user role"
-    }
+    retry: MAX_RETRIES,
+    retryDelay: RETRY_DELAY,
   });
 
   const canAccessTab = (tab: string): boolean => {
