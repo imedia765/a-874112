@@ -1,7 +1,7 @@
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export type UserRole = 'member' | 'collector' | 'admin' | null;
@@ -98,9 +98,9 @@ export const useRoleAccess = () => {
           console.log('Found roles in user_roles table:', roles);
           
           // Return highest priority role
-          if (roles.includes('admin')) return 'admin';
-          if (roles.includes('collector')) return 'collector';
-          if (roles.includes('member')) return 'member';
+          if (roles.includes('admin')) return 'admin' as UserRole;
+          if (roles.includes('collector')) return 'collector' as UserRole;
+          if (roles.includes('member')) return 'member' as UserRole;
         }
 
         // Fallback to checking collector status
