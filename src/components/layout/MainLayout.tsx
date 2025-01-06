@@ -1,11 +1,12 @@
 import { ReactNode } from 'react';
 import MainHeader from './MainHeader';
 import SidePanel from '@/components/SidePanel';
+import { UserRole } from '@/hooks/useRoleAccess';
 
 interface MainLayoutProps {
   children: ReactNode;
   activeTab: string;
-  userRole: string | null;
+  userRole: UserRole;  // Updated type to use UserRole instead of string | null
   isSidebarOpen: boolean;
   onSidebarToggle: () => void;
   onTabChange: (tab: string) => void;
