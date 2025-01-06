@@ -10,9 +10,9 @@ import SystemToolsView from '@/components/SystemToolsView';
 import SidePanel from '@/components/SidePanel';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from '@tanstack/react-query';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useQueryClient } from '@tanstack/react-query';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -23,6 +23,32 @@ const Index = () => {
   const { userRole, roleLoading, canAccessTab } = useRoleAccess();
   const queryClient = useQueryClient();
 
+  const handleSessionError = async () => {
+    console.log('Session error detected, cleaning up...');
+    
+    try {
+      // Clear all queries
+      await queryClient.invalidateQueries();
+      await queryClient.resetQueries();
+      
+      // Clear local storage
+      localStorage.clear();
+      
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      toast({
+        title: "Session expired",
+        description: "Please sign in again",
+      });
+      
+      navigate('/login');
+    } catch (error) {
+      console.error('Cleanup error:', error);
+      window.location.href = '/login';
+    }
+  };
+
   const checkAuth = async () => {
     try {
       console.log('Checking authentication status...');
@@ -30,29 +56,44 @@ const Index = () => {
       
       if (error) {
         console.error('Auth check error:', error);
-        throw error;
+        await handleSessionError();
+        return;
       }
 
       if (!session) {
         console.log('No active session found, redirecting to login...');
-        navigate('/login');
+        await handleSessionError();
+        return;
+      }
+
+      // Verify the session is still valid by making a test request
+      const { error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.error('User verification failed:', userError);
+        await handleSessionError();
         return;
       }
 
       console.log('Active session found for user:', session.user.id);
     } catch (error: any) {
       console.error('Authentication check failed:', error);
-      toast({
-        title: "Authentication Error",
-        description: error.message,
-        variant: "destructive",
-      });
-      navigate('/login');
+      await handleSessionError();
     }
   };
 
   useEffect(() => {
     checkAuth();
+    
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        await handleSessionError();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -108,26 +149,29 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-dashboard-dark flex flex-col">
-      <div className="w-full bg-dashboard-card/50 py-4 flex justify-between items-center px-6 border-b border-white/10">
-        <div className="lg:hidden">
+    <div className="min-h-screen bg-dashboard-dark">
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-dashboard-card/50 backdrop-blur-sm py-4 px-6 border-b border-white/10">
+        <div className="flex items-center justify-between lg:justify-center max-w-screen-2xl mx-auto">
           <Button
             variant="outline"
             size="icon"
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="bg-dashboard-card/50 border-white/10"
+            className="lg:hidden bg-dashboard-card/50 border-white/10"
           >
             <Menu className="h-4 w-4" />
           </Button>
-        </div>
 
-        <div className="text-center flex-1">
-          <p className="text-xl text-white font-arabic">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</p>
-          <p className="text-sm text-dashboard-accent1 mt-1">In the name of Allah, the Most Gracious, the Most Merciful</p>
+          <div className="text-center">
+            <p className="text-xl text-white font-arabic">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</p>
+            <p className="text-sm text-dashboard-accent1 mt-1">In the name of Allah, the Most Gracious, the Most Merciful</p>
+          </div>
         </div>
-      </div>
+      </header>
       
-      <div className="flex flex-1 relative">
+      {/* Main layout */}
+      <div className="flex h-screen pt-16">
+        {/* Overlay for mobile */}
         {isSidebarOpen && (
           <div 
             className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -135,23 +179,28 @@ const Index = () => {
           />
         )}
 
-        <div className={`
-          fixed lg:relative inset-y-0 left-0 z-40 h-[calc(100vh-4rem)]
-          transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          lg:translate-x-0 transition-transform duration-200 ease-in-out
+        {/* Sidebar */}
+        <aside className={`
+          fixed lg:static w-64 h-[calc(100vh-4rem)] top-16
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          transition-transform duration-200 ease-in-out
+          z-40
         `}>
           <SidePanel 
             onTabChange={(tab) => {
               setActiveTab(tab);
               setIsSidebarOpen(false);
-            }} 
-            userRole={userRole} 
+            }}
+            userRole={userRole}
           />
-        </div>
+        </aside>
 
-        <div className="flex-1 overflow-auto p-8">
-          {renderContent()}
-        </div>
+        {/* Main content */}
+        <main className="flex-1 min-h-[calc(100vh-4rem)] p-8 lg:pl-8 overflow-auto">
+          <div className="max-w-screen-2xl mx-auto">
+            {renderContent()}
+          </div>
+        </main>
       </div>
     </div>
   );

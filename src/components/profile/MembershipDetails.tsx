@@ -16,7 +16,7 @@ type AppRole = 'admin' | 'collector' | 'member';
 const MembershipDetails = ({ memberProfile, userRole }: MembershipDetailsProps) => {
   const { toast } = useToast();
 
-  const { data: userRoles } = useQuery({
+  const { data: userRoles, refetch: refetchRoles } = useQuery({
     queryKey: ['userRoles', memberProfile.auth_user_id],
     queryFn: async () => {
       if (!memberProfile.auth_user_id) return [];
@@ -56,6 +56,7 @@ const MembershipDetails = ({ memberProfile, userRole }: MembershipDetailsProps) 
     }
 
     try {
+      // Delete existing roles
       const { error: deleteError } = await supabase
         .from('user_roles')
         .delete()
@@ -63,6 +64,7 @@ const MembershipDetails = ({ memberProfile, userRole }: MembershipDetailsProps) 
 
       if (deleteError) throw deleteError;
 
+      // Insert new role
       const { error: insertError } = await supabase
         .from('user_roles')
         .insert({
@@ -71,6 +73,8 @@ const MembershipDetails = ({ memberProfile, userRole }: MembershipDetailsProps) 
         });
 
       if (insertError) throw insertError;
+
+      await refetchRoles();
 
       toast({
         title: "Success",

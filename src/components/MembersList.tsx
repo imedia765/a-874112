@@ -10,18 +10,16 @@ import { Member } from '@/types/member';
 import { useToast } from "@/components/ui/use-toast";
 import { generateMembersPDF } from '@/utils/pdfGenerator';
 import MembersListHeader from './members/MembersListHeader';
-import MembersPagination from './members/MembersPagination';
 
 interface MembersListProps {
   searchTerm: string;
   userRole: string | null;
 }
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 7;
 
 const MembersList = ({ searchTerm, userRole }: MembersListProps) => {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
 
   const { data: collectorInfo } = useQuery({
@@ -45,7 +43,7 @@ const MembersList = ({ searchTerm, userRole }: MembersListProps) => {
   });
 
   const { data: membersData, isLoading } = useQuery({
-    queryKey: ['members', searchTerm, userRole, currentPage],
+    queryKey: ['members', searchTerm, userRole],
     queryFn: async () => {
       console.log('Fetching members with search term:', searchTerm);
       let query = supabase
@@ -72,12 +70,9 @@ const MembersList = ({ searchTerm, userRole }: MembersListProps) => {
         }
       }
       
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
-      
       const { data, count, error } = await query
         .order('created_at', { ascending: false })
-        .range(from, to);
+        .limit(ITEMS_PER_PAGE);
       
       if (error) {
         console.error('Error fetching members:', error);
@@ -92,7 +87,6 @@ const MembersList = ({ searchTerm, userRole }: MembersListProps) => {
     staleTime: 30 * 1000,
   });
 
-  const totalPages = Math.ceil((membersData?.totalCount || 0) / ITEMS_PER_PAGE);
   const members = membersData?.members || [];
   const selectedMember = members?.find(m => m.id === selectedMemberId);
 
@@ -138,24 +132,16 @@ const MembersList = ({ searchTerm, userRole }: MembersListProps) => {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dashboard-accent1"></div>
           </div>
         ) : (
-          <>
-            <Accordion type="single" collapsible className="space-y-4">
-              {members?.map((member) => (
-                <MemberCard
-                  key={member.id}
-                  member={member}
-                  userRole={userRole}
-                  onPaymentClick={() => setSelectedMemberId(member.id)}
-                />
-              ))}
-            </Accordion>
-
-            <MembersPagination 
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
-          </>
+          <Accordion type="single" collapsible className="space-y-4">
+            {members?.map((member) => (
+              <MemberCard
+                key={member.id}
+                member={member}
+                userRole={userRole}
+                onPaymentClick={() => setSelectedMemberId(member.id)}
+              />
+            ))}
+          </Accordion>
         )}
       </ScrollArea>
 

@@ -16,9 +16,24 @@ export const useRoleAccess = () => {
   const { data: sessionData, error: sessionError } = useQuery({
     queryKey: ['session'],
     queryFn: async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      return session;
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        
+        // Verify session is still valid with a test request
+        if (session) {
+          const { error: userError } = await supabase.auth.getUser();
+          if (userError) throw userError;
+        }
+        
+        return session;
+      } catch (error: any) {
+        console.error('Session error:', error);
+        // Clear any existing session
+        await supabase.auth.signOut();
+        localStorage.clear();
+        throw error;
+      }
     },
     retry: false
   });

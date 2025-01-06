@@ -427,6 +427,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      validate_user_roles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          check_type: string
+          status: string
+          details: Json
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "collector" | "member"
