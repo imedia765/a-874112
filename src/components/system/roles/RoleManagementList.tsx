@@ -4,7 +4,18 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import UserRoleCard from './UserRoleCard';
 import { supabase } from "@/integrations/supabase/client";
 import RoleManagementHeader from './RoleManagementHeader';
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
+
+interface UserData {
+  id: string;
+  user_id: string;
+  full_name: string;
+  member_number: string;
+  role: 'admin' | 'collector' | 'member';
+  roles?: ('admin' | 'collector' | 'member')[];
+  auth_user_id: string;
+  user_roles: { role: 'admin' | 'collector' | 'member' }[];
+}
 
 const RoleManagementList = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,7 +42,16 @@ const RoleManagementList = () => {
         throw error;
       }
 
-      return data || [];
+      // Transform the data to match the expected format
+      return (data || []).map((user): UserData => ({
+        id: user.id,
+        user_id: user.auth_user_id,
+        full_name: user.full_name,
+        member_number: user.member_number,
+        role: user.user_roles?.[0]?.role || 'member',
+        auth_user_id: user.auth_user_id,
+        user_roles: user.user_roles || []
+      }));
     },
   });
 
