@@ -20,6 +20,10 @@ interface UserData {
   user_roles: { role: UserRole }[];
 }
 
+type MemberWithRoles = Database['public']['Tables']['members']['Row'] & {
+  user_roles: { role: UserRole }[] | null;
+}
+
 const RoleManagementList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const queryClient = useQueryClient();
@@ -51,7 +55,7 @@ const RoleManagementList = () => {
       }
 
       // Transform the data to match the expected format
-      return (data || []).map((user): UserData => ({
+      return (data as MemberWithRoles[] || []).map((user): UserData => ({
         id: user.id,
         user_id: user.auth_user_id || '',
         full_name: user.full_name,
