@@ -17,11 +17,7 @@ interface UserData {
   role: UserRole;
   roles?: UserRole[];
   auth_user_id: string;
-  user_roles: { role: UserRole }[];
-}
-
-type MemberWithRoles = Database['public']['Tables']['members']['Row'] & {
-  user_roles: Array<{ role: UserRole }> | null;
+  user_roles: Array<{ role: UserRole }>;
 }
 
 const RoleManagementList = () => {
@@ -33,37 +29,52 @@ const RoleManagementList = () => {
     queryKey: ['users', searchTerm],
     queryFn: async () => {
       console.log('Fetching users with search term:', searchTerm);
+      
+      // First get all members
       let query = supabase
         .from('members')
-        .select(`
-          *,
-          user_roles (
-            role
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (searchTerm) {
         query = query.or(`full_name.ilike.%${searchTerm}%,member_number.ilike.%${searchTerm}%`);
       }
 
-      const { data, error } = await query;
+      const { data: membersData, error: membersError } = await query;
 
-      if (error) {
-        console.error('Error fetching users:', error);
-        throw error;
+      if (membersError) {
+        console.error('Error fetching members:', membersError);
+        throw membersError;
       }
 
-      // Transform the data to match the expected format
-      const typedData = data as unknown as MemberWithRoles[];
-      return typedData.map((user): UserData => ({
+      // Then get roles for each member
+      const usersWithRoles = await Promise.all(membersData.map(async (member) => {
+        if (!member.auth_user_id) return { ...member, user_roles: [] };
+
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', member.auth_user_id);
+
+        if (roleError) {
+          console.error('Error fetching roles for member:', member.member_number, roleError);
+          return { ...member, user_roles: [] };
+        }
+
+        return {
+          ...member,
+          user_roles: roleData || []
+        };
+      }));
+
+      return usersWithRoles.map((user): UserData => ({
         id: user.id,
         user_id: user.auth_user_id || '',
         full_name: user.full_name,
         member_number: user.member_number,
-        role: user.user_roles?.[0]?.role || 'member',
+        role: user.user_roles[0]?.role || 'member',
         auth_user_id: user.auth_user_id || '',
-        user_roles: Array.isArray(user.user_roles) ? user.user_roles : []
+        user_roles: user.user_roles
       }));
     },
   });
