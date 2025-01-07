@@ -49,6 +49,7 @@ const UserRoleCard = ({ user, onRoleChange }: UserRoleCardProps) => {
       </div>
       <RoleSelect 
         currentRole={user.role}
+        userId={user.user_id}
         onRoleChange={(role) => onRoleChange(user.user_id, role)}
       />
     </div>

@@ -6,9 +6,9 @@ import { useNavigate } from 'react-router-dom';
 
 export type UserRole = 'member' | 'collector' | 'admin' | null;
 
-const ROLE_STALE_TIME = 1000 * 60 * 5; // 5 minutes
+const ROLE_STALE_TIME = 1000 * 60; // 1 minute - reduced from 5 minutes for faster role updates
 const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000; // 1 second
+const RETRY_DELAY = 1000;
 
 export const useRoleAccess = () => {
   const { toast } = useToast();
@@ -66,41 +66,31 @@ export const useRoleAccess = () => {
       console.log('Fetching roles for user:', sessionData.user.id);
       
       try {
-        // First try to get roles from user_roles table with retries
-        let attempt = 0;
-        let roleData = null;
-        let lastError = null;
+        // Get all roles for the user
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', sessionData.user.id);
 
-        while (attempt < MAX_RETRIES && !roleData) {
-          try {
-            const { data, error } = await supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', sessionData.user.id);
+        if (roleError) throw roleError;
 
-            if (error) throw error;
-            
-            if (data && data.length > 0) {
-              console.log('Found roles:', data);
-              roleData = data;
-              break;
-            }
-          } catch (error) {
-            console.error(`Attempt ${attempt + 1} failed:`, error);
-            lastError = error;
-            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-          }
-          attempt++;
-        }
-
-        if (roleData) {
+        if (roleData && roleData.length > 0) {
+          console.log('Found roles:', roleData);
           const roles = roleData.map(r => r.role);
-          console.log('Found roles in user_roles table:', roles);
           
           // Return highest priority role
-          if (roles.includes('admin')) return 'admin' as UserRole;
-          if (roles.includes('collector')) return 'collector' as UserRole;
-          if (roles.includes('member')) return 'member' as UserRole;
+          if (roles.includes('admin')) {
+            console.log('User has admin role');
+            return 'admin' as UserRole;
+          }
+          if (roles.includes('collector')) {
+            console.log('User has collector role');
+            return 'collector' as UserRole;
+          }
+          if (roles.includes('member')) {
+            console.log('User has member role');
+            return 'member' as UserRole;
+          }
         }
 
         // Fallback to checking collector status
@@ -144,6 +134,8 @@ export const useRoleAccess = () => {
     staleTime: ROLE_STALE_TIME,
     retry: MAX_RETRIES,
     retryDelay: RETRY_DELAY,
+    refetchOnWindowFocus: true, // Add this to ensure roles are refreshed when window gains focus
+    refetchOnMount: true, // Add this to ensure roles are refreshed when component mounts
   });
 
   const canAccessTab = (tab: string): boolean => {
@@ -153,7 +145,7 @@ export const useRoleAccess = () => {
 
     switch (userRole) {
       case 'admin':
-        return true;
+        return ['dashboard', 'users', 'collectors', 'audit', 'system', 'financials'].includes(tab);
       case 'collector':
         return ['dashboard', 'users'].includes(tab);
       case 'member':

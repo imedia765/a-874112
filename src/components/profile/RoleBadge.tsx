@@ -6,8 +6,22 @@ interface RoleBadgeProps {
 }
 
 const RoleBadge = ({ role }: RoleBadgeProps) => {
+  // Function to determine the highest privilege role
+  const getHighestRole = (role: string | null): string => {
+    if (!role) return 'member';
+    
+    // Admin has highest privilege
+    if (role === 'admin') return 'admin';
+    // Collector has second highest privilege
+    if (role === 'collector') return 'collector';
+    // Member has lowest privilege
+    return 'member';
+  };
+
+  const highestRole = getHighestRole(role);
+
   const badgeContent = () => {
-    switch (role) {
+    switch (highestRole) {
       case 'admin':
         return (
           <Badge variant="outline" className="bg-dashboard-accent1/20 text-dashboard-accent1 border-0 gap-1 inline-flex items-center">

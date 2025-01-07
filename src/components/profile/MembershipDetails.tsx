@@ -104,6 +104,12 @@ const MembershipDetails = ({ memberProfile, userRole }: MembershipDetailsProps) 
             {memberProfile?.status || 'Pending'}
           </span>
         </div>
+        {memberProfile?.collector && (
+          <div className="text-dashboard-text flex items-center gap-2">
+            <span className="text-dashboard-muted">Collector:</span>
+            <span className="text-dashboard-accent1">{memberProfile.collector}</span>
+          </div>
+        )}
         <div className="text-dashboard-text flex items-center gap-2">
           <span className="text-dashboard-accent2">Type:</span>
           <span className="flex items-center gap-2">

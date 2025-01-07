@@ -9,6 +9,10 @@ import { Database } from "@/integrations/supabase/types";
 
 type UserRole = Database['public']['Enums']['app_role'];
 
+interface UserRoleData {
+  role: UserRole;
+}
+
 interface UserData {
   id: string;
   user_id: string;
@@ -16,7 +20,7 @@ interface UserData {
   member_number: string;
   role: UserRole;
   auth_user_id: string;
-  user_roles: Array<{ role: UserRole }>;
+  user_roles: UserRoleData[];
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -44,63 +48,69 @@ const RoleManagementList = () => {
 
         if (rolesError) throw rolesError;
 
-        const isAdmin = currentUserRoles?.some(role => role.role === 'admin');
+        const isAdmin = currentUserRoles?.some(role => 
+          typeof role === 'object' && 'role' in role && role.role === 'admin'
+        );
+        
         if (!isAdmin) {
           throw new Error('Unauthorized: Admin access required');
         }
 
-        // Then get paginated members
-        let query = supabase
+        // First get the members
+        let membersQuery = supabase
           .from('members')
-          .select('*')
+          .select(`
+            id,
+            auth_user_id,
+            full_name,
+            member_number
+          `)
           .order('created_at', { ascending: false })
           .range(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE - 1);
 
         if (searchTerm) {
-          query = query.or(`full_name.ilike.%${searchTerm}%,member_number.ilike.%${searchTerm}%`);
+          membersQuery = membersQuery.or(`full_name.ilike.%${searchTerm}%,member_number.ilike.%${searchTerm}%`);
         }
 
-        const { data: membersData, error: membersError } = await query;
+        const { data: membersData, error: membersError } = await membersQuery;
 
         if (membersError) {
           console.error('Error fetching members:', membersError);
           throw membersError;
         }
 
-        // Then get roles for each member
-        const usersWithRoles = await Promise.all(membersData.map(async (member) => {
-          if (!member.auth_user_id) return { ...member, user_roles: [] };
+        // Then get their roles in a separate query
+        const memberAuthIds = membersData
+          .map(m => m.auth_user_id)
+          .filter(id => id !== null) as string[];
 
-          try {
-            const { data: roleData, error: roleError } = await supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', member.auth_user_id);
+        const { data: rolesData, error: userRolesError } = await supabase
+          .from('user_roles')
+          .select('user_id, role')
+          .in('user_id', memberAuthIds);
 
-            if (roleError) {
-              console.error('Error fetching roles for member:', member.member_number, roleError);
-              return { ...member, user_roles: [] };
-            }
+        if (userRolesError) {
+          console.error('Error fetching user roles:', userRolesError);
+          throw userRolesError;
+        }
 
-            return {
-              ...member,
-              user_roles: roleData || []
-            };
-          } catch (error) {
-            console.error('Error in role fetch:', error);
-            return { ...member, user_roles: [] };
-          }
-        }));
+        // Map the roles to the members
+        return membersData.map(member => {
+          const userRoles = rolesData
+            .filter(r => r.user_id === member.auth_user_id)
+            .map(r => ({ role: r.role }));
 
-        return usersWithRoles.map((user): UserData => ({
-          id: user.id,
-          user_id: user.auth_user_id || '',
-          full_name: user.full_name,
-          member_number: user.member_number,
-          role: user.user_roles[0]?.role || 'member',
-          auth_user_id: user.auth_user_id || '',
-          user_roles: user.user_roles
-        }));
+          return {
+            id: member.id,
+            user_id: member.auth_user_id || '',
+            full_name: member.full_name,
+            member_number: member.member_number,
+            role: userRoles.length > 0 ? userRoles[0].role : 'member' as UserRole,
+            auth_user_id: member.auth_user_id || '',
+            user_roles: userRoles
+          };
+        });
+
       } catch (error: any) {
         console.error('Error in user fetch:', error);
         toast({
@@ -112,6 +122,20 @@ const RoleManagementList = () => {
       }
     },
   });
+
+  const handleRoleChange = async (userId: string, newRole: UserRole) => {
+    try {
+      // Update will be handled by RoleSelect component
+      await queryClient.invalidateQueries({ queryKey: ['users'] });
+    } catch (error) {
+      console.error('Error in role change:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update role",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -141,9 +165,7 @@ const RoleManagementList = () => {
               <UserRoleCard
                 key={user.id}
                 user={user}
-                onRoleChange={async () => {
-                  await queryClient.invalidateQueries({ queryKey: ['users'] });
-                }}
+                onRoleChange={handleRoleChange}
               />
             ))}
             {isLoading && page > 0 && (

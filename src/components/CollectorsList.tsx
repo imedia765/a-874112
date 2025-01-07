@@ -8,16 +8,11 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import TotalCount from "@/components/TotalCount";
 import CollectorMembers from "@/components/CollectorMembers";
 import PrintButtons from "@/components/PrintButtons";
 
 type MemberCollector = Database['public']['Tables']['members_collectors']['Row'];
 type Member = Database['public']['Tables']['members']['Row'];
-
-interface CollectorWithCounts extends MemberCollector {
-  memberCount: number;
-}
 
 const CollectorsList = () => {
   // Fetch all members for the master print functionality
@@ -78,29 +73,12 @@ const CollectorsList = () => {
     },
   });
 
-  // Calculate total members across all collectors
-  const totalMembers = collectors?.reduce((total, collector) => total + (collector.memberCount || 0), 0) || 0;
-
   if (collectorsLoading) return <div className="text-center py-4">Loading collectors...</div>;
   if (collectorsError) return <div className="text-center py-4 text-red-500">Error loading collectors: {collectorsError.message}</div>;
   if (!collectors?.length) return <div className="text-center py-4">No collectors found</div>;
 
   return (
     <div className="space-y-4">
-      <TotalCount 
-        items={[
-          {
-            count: totalMembers,
-            label: "Total Members",
-            icon: <Users className="w-6 h-6 text-blue-400" />
-          },
-          {
-            count: collectors.length,
-            label: "Total Collectors",
-            icon: <UserCheck className="w-6 h-6 text-purple-400" />
-          }
-        ]}
-      />
       <div className="flex justify-end mb-4">
         <PrintButtons allMembers={allMembers} />
       </div>

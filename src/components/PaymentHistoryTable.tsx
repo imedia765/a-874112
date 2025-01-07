@@ -55,12 +55,6 @@ const PaymentHistoryTable = () => {
     },
   });
 
-  // Filter payments to show yearly payments and completed emergency collections
-  const filteredPayments = payments.filter(payment => 
-    payment.type === 'Annual Payment' || 
-    (payment.type === 'Emergency Collection' && payment.status === 'completed')
-  );
-
   if (isLoading) {
     return (
       <div className="glass-card p-4">
@@ -84,11 +78,13 @@ const PaymentHistoryTable = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredPayments.map((payment) => (
+            {payments.map((payment) => (
               <TableRow key={payment.id}>
                 <TableCell>{format(new Date(payment.date), 'PPP')}</TableCell>
                 <TableCell>{payment.type}</TableCell>
-                <TableCell>£{payment.amount}</TableCell>
+                <TableCell className="text-dashboard-accent3">
+                  <span className="text-dashboard-accent3">£</span>{payment.amount}
+                </TableCell>
                 <TableCell>{payment.status}</TableCell>
               </TableRow>
             ))}
