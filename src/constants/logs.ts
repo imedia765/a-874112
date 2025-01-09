@@ -1,6 +1,6 @@
 export const LOGS_TABS = {
-  AUDIT: 'audit' as const,
-  MONITORING: 'monitoring' as const
+  AUDIT: 'AUDIT',
+  MONITORING: 'MONITORING'
 } as const;
 
-export type LogsTabsType = typeof LOGS_TABS[keyof typeof LOGS_TABS];
+export type LogsTabsType = (typeof LOGS_TABS)[keyof typeof LOGS_TABS];

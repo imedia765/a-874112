@@ -105,11 +105,11 @@ const CollectorMembers = ({ collectorName }: { collectorName: string }) => {
         {members.map((member) => (
           <li 
             key={member.id}
-            className="bg-card p-4 rounded-lg border border-border"
+            className="bg-dashboard-card p-4 rounded-lg border border-dashboard-cardBorder hover:border-dashboard-cardBorderHover hover:bg-dashboard-cardHover transition-all duration-300"
           >
             <div>
-              <p className="font-medium">{member.full_name}</p>
-              <p className="text-sm text-muted-foreground">
+              <p className="font-medium text-dashboard-highlight">{member.full_name}</p>
+              <p className="text-sm text-dashboard-accent2">
                 Member #: {member.member_number}
               </p>
             </div>

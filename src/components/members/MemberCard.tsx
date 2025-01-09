@@ -2,14 +2,16 @@ import { Member } from '@/types/member';
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Edit } from "lucide-react";
 
 interface MemberCardProps {
   member: Member;
   userRole: string | null;
   onPaymentClick: () => void;
+  onEditClick: () => void;
 }
 
-const MemberCard = ({ member, userRole, onPaymentClick }: MemberCardProps) => {
+const MemberCard = ({ member, userRole, onPaymentClick, onEditClick }: MemberCardProps) => {
   return (
     <AccordionItem 
       key={member.id} 
@@ -81,12 +83,21 @@ const MemberCard = ({ member, userRole, onPaymentClick }: MemberCardProps) => {
           
         {userRole === 'collector' && (
           <div className="mt-4 pt-4 border-t border-white/10">
-            <Button 
-              onClick={onPaymentClick}
-              className="w-full bg-dashboard-accent1 hover:bg-dashboard-accent1/80 text-white transition-colors"
-            >
-              Record Payment
-            </Button>
+            <div className="grid grid-cols-2 gap-4">
+              <Button 
+                onClick={onPaymentClick}
+                className="w-full bg-dashboard-accent1 hover:bg-dashboard-accent1/80 text-white transition-colors"
+              >
+                Record Payment
+              </Button>
+              <Button
+                onClick={onEditClick}
+                className="w-full bg-dashboard-accent2 hover:bg-dashboard-accent2/80 text-white transition-colors"
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Profile
+              </Button>
+            </div>
           </div>
         )}
       </AccordionContent>

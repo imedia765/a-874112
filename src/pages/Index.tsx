@@ -4,10 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import DashboardView from '@/components/DashboardView';
 import MembersList from '@/components/MembersList';
 import MemberSearch from '@/components/MemberSearch';
-import AuditLogsView from '@/components/AuditLogsView';
 import SystemToolsView from '@/components/SystemToolsView';
 import CollectorFinancialsView from '@/components/CollectorFinancialsView';
-import ReportsView from '@/components/ReportsView';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useToast } from "@/hooks/use-toast";
 import MainLayout from '@/components/layout/MainLayout';
@@ -123,10 +121,6 @@ const Index = () => {
         );
       case 'financials':
         return <CollectorFinancialsView />;
-      case 'reports':
-        return <ReportsView />;
-      case 'audit':
-        return <AuditLogsView />;
       case 'system':
         return <SystemToolsView />;
       default:
