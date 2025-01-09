@@ -31,13 +31,13 @@ const TestResultsTable = ({ results, type }: TestResultsTableProps) => {
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'good':
-        return 'bg-green-500/10 text-green-500 border-green-500/20';
+        return 'bg-dashboard-success/10 text-dashboard-success border-dashboard-success/20';
       case 'warning':
-        return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
+        return 'bg-dashboard-warning/10 text-dashboard-warning border-dashboard-warning/20';
       case 'critical':
-        return 'bg-red-500/10 text-red-500 border-red-500/20';
+        return 'bg-dashboard-error/10 text-dashboard-error border-dashboard-error/20';
       default:
-        return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+        return 'bg-dashboard-info/10 text-dashboard-info border-dashboard-info/20';
     }
   };
 
@@ -53,11 +53,12 @@ const TestResultsTable = ({ results, type }: TestResultsTableProps) => {
   return (
     <Accordion type="single" collapsible className="w-full space-y-2">
       {Object.entries(groupedResults).map(([group, groupResults], groupIndex) => (
-        <AccordionItem key={groupIndex} value={`item-${groupIndex}`} className="border rounded-lg">
+        <AccordionItem key={groupIndex} value={`item-${groupIndex}`} className="border rounded-lg border-dashboard-cardBorder">
           <AccordionTrigger className="px-4 hover:no-underline">
             <div className="flex items-center justify-between w-full">
-              <span className="font-medium">{group}</span>
-              <Badge variant="outline" className={getStatusColor(groupResults[0].status)}>
+              <span className="font-medium text-dashboard-text">{group}</span>
+              <Badge variant={groupResults[0].status.toLowerCase() === 'critical' ? 'destructive' : 'outline'} 
+                     className={getStatusColor(groupResults[0].status)}>
                 {groupResults[0].status}
               </Badge>
             </div>
@@ -65,7 +66,7 @@ const TestResultsTable = ({ results, type }: TestResultsTableProps) => {
           <AccordionContent className="px-4">
             <Table>
               <TableHeader className="bg-dashboard-card/50">
-                <TableRow className="border-b border-white/10">
+                <TableRow className="border-b border-dashboard-cardBorder">
                   <TableHead className="text-dashboard-text">Name</TableHead>
                   {type === 'performance' && (
                     <>
@@ -79,7 +80,7 @@ const TestResultsTable = ({ results, type }: TestResultsTableProps) => {
               </TableHeader>
               <TableBody>
                 {groupResults.map((result, index) => (
-                  <TableRow key={index} className="border-b border-white/5">
+                  <TableRow key={index} className="border-b border-dashboard-cardBorder/50">
                     <TableCell className="font-medium text-dashboard-text">
                       {result.metric_name || result.check_type}
                     </TableCell>
@@ -95,8 +96,8 @@ const TestResultsTable = ({ results, type }: TestResultsTableProps) => {
                     )}
                     <TableCell>
                       <Badge 
-                        variant="outline" 
-                        className={`${getStatusColor(result.status)}`}
+                        variant={result.status.toLowerCase() === 'critical' ? 'destructive' : 'outline'}
+                        className={getStatusColor(result.status)}
                       >
                         {result.status}
                       </Badge>
@@ -104,18 +105,20 @@ const TestResultsTable = ({ results, type }: TestResultsTableProps) => {
                     <TableCell>
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" className="border-dashboard-cardBorder">
                             <Info className="w-4 h-4 mr-2" />
                             Details
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
+                        <DialogContent className="max-w-2xl bg-dashboard-card border-dashboard-cardBorder">
                           <DialogHeader>
-                            <DialogTitle>{result.metric_name || result.check_type}</DialogTitle>
+                            <DialogTitle className="text-dashboard-text">
+                              {result.metric_name || result.check_type}
+                            </DialogTitle>
                           </DialogHeader>
                           <div className="mt-4">
-                            <h4 className="font-medium mb-2">Details:</h4>
-                            <pre className="bg-black/10 p-4 rounded-lg overflow-auto max-h-[400px] text-sm">
+                            <h4 className="font-medium mb-2 text-dashboard-text">Details:</h4>
+                            <pre className="bg-dashboard-dark/50 p-4 rounded-lg overflow-auto max-h-[400px] text-sm text-dashboard-text">
                               {JSON.stringify(result.details, null, 2)}
                             </pre>
                           </div>
