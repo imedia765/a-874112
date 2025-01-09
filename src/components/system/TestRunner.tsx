@@ -2,12 +2,15 @@ import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { PlayCircle } from 'lucide-react';
+import { PlayCircle, AlertCircle, Terminal } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { DebugConsole } from '../logs/DebugConsole';
 import SystemCheckProgress from './SystemCheckProgress';
 import { toast } from "sonner";
 import TestResultsTable from './test-runner/TestResultsTable';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 const TestRunner = () => {
   const [testLogs, setTestLogs] = useState<string[]>(['Test runner initialized and ready']);
@@ -121,52 +124,75 @@ const TestRunner = () => {
   });
 
   return (
-    <section className="space-y-4 dashboard-card">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-medium text-dashboard-text flex items-center gap-2">
-          <PlayCircle className="w-5 h-5 text-dashboard-accent1" />
-          Test Runner
-        </h2>
-      </div>
-
-      <Button
-        onClick={() => runTestsMutation.mutate()}
-        disabled={isRunning}
-        className="bg-dashboard-accent1 hover:bg-dashboard-accent2 text-white"
-      >
-        {isRunning ? 'Running Tests...' : 'Run All Tests'}
-      </Button>
-
-      {isRunning && (
-        <SystemCheckProgress
-          currentCheck={currentTest}
-          progress={progress}
-          totalChecks={100}
-          completedChecks={Math.floor(progress)}
-        />
-      )}
-
-      {runTestsMutation.isError && (
-        <Alert variant="destructive" className="bg-dashboard-card border-dashboard-error">
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            Failed to run tests: {runTestsMutation.error.message}
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {testResults.length > 0 && (
-        <div className="mt-6">
-          <h3 className="text-lg font-medium text-dashboard-text mb-4">Test Results</h3>
-          <TestResultsTable 
-            results={testResults} 
-            type={testResults[0]?.test_type || 'system'} 
-          />
+    <Card className="bg-dashboard-card border-dashboard-cardBorder hover:border-dashboard-cardBorderHover transition-all duration-300">
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <PlayCircle className="w-6 h-6 text-dashboard-accent1" />
+            <CardTitle className="text-xl font-medium text-dashboard-text">
+              System Test Runner
+            </CardTitle>
+          </div>
+          <Button
+            onClick={() => runTestsMutation.mutate()}
+            disabled={isRunning}
+            className="bg-dashboard-accent1 hover:bg-dashboard-accent2 text-white transition-all duration-300"
+          >
+            {isRunning ? 'Running Tests...' : 'Run All Tests'}
+          </Button>
         </div>
-      )}
+      </CardHeader>
 
-      <DebugConsole logs={testLogs} />
-    </section>
+      <CardContent className="space-y-6">
+        {isRunning && (
+          <div className="glass-card p-4">
+            <SystemCheckProgress
+              currentCheck={currentTest}
+              progress={progress}
+              totalChecks={100}
+              completedChecks={Math.floor(progress)}
+            />
+          </div>
+        )}
+
+        {runTestsMutation.isError && (
+          <Alert variant="destructive" className="bg-dashboard-card border-dashboard-error">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error Running Tests</AlertTitle>
+            <AlertDescription>
+              {runTestsMutation.error.message}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {testResults.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-dashboard-text">Test Results</h3>
+              <Badge variant="outline" className="bg-dashboard-accent3/10 text-dashboard-accent3">
+                {testResults.length} Tests Completed
+              </Badge>
+            </div>
+            <div className="glass-card p-4">
+              <TestResultsTable 
+                results={testResults} 
+                type={testResults[0]?.test_type || 'system'} 
+              />
+            </div>
+          </div>
+        )}
+
+        <Separator className="my-6 bg-dashboard-cardBorder" />
+        
+        <div className="glass-card p-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Terminal className="w-4 h-4 text-dashboard-accent2" />
+            <h3 className="text-sm font-medium text-dashboard-text">Debug Console</h3>
+          </div>
+          <DebugConsole logs={testLogs} />
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
