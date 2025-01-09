@@ -19,7 +19,6 @@ const TestRunner = () => {
   const [currentTest, setCurrentTest] = useState('');
   const [testResults, setTestResults] = useState<any[]>([]);
 
-  // Add console log to track test results
   console.log('Current test results:', testResults);
 
   const runAllTests = async () => {
