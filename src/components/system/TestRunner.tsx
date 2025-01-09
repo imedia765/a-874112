@@ -19,6 +19,9 @@ const TestRunner = () => {
   const [currentTest, setCurrentTest] = useState('');
   const [testResults, setTestResults] = useState<any[]>([]);
 
+  // Add console log to track test results
+  console.log('Current test results:', testResults);
+
   const runAllTests = async () => {
     setIsRunning(true);
     setTestLogs(prev => [...prev, '🚀 Starting all tests...']);
@@ -54,12 +57,16 @@ const TestRunner = () => {
       for (const test of testFunctions) {
         setCurrentTest(`Running ${test.name}...`);
         setTestLogs(prev => [...prev, `📋 Starting ${test.name} test...`]);
+        console.log(`Executing test: ${test.name}`); // Debug log
 
         const { data, error } = await supabase.rpc(test.fn);
 
         if (error) {
+          console.error(`Test error for ${test.name}:`, error); // Debug log
           throw new Error(`${test.name} failed: ${error.message}`);
         }
+
+        console.log(`Test results for ${test.name}:`, data); // Debug log
 
         const processedData = Array.isArray(data) ? data : [data];
         results.push(...processedData.map(item => ({
@@ -72,6 +79,7 @@ const TestRunner = () => {
         setTestLogs(prev => [...prev, `✅ ${test.name} completed`]);
       }
 
+      console.log('All test results:', results); // Debug log
       setTestResults(results);
       setProgress(100);
       setCurrentTest('All tests complete');
@@ -145,7 +153,7 @@ const TestRunner = () => {
 
       <CardContent className="space-y-6">
         {isRunning && (
-          <div className="glass-card p-4">
+          <div className="glass-card p-4 rounded-lg border border-dashboard-cardBorder bg-dashboard-card/50">
             <SystemCheckProgress
               currentCheck={currentTest}
               progress={progress}
@@ -169,11 +177,14 @@ const TestRunner = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-dashboard-text">Test Results</h3>
-              <Badge variant="outline" className="bg-dashboard-accent3/10 text-dashboard-accent3">
+              <Badge 
+                variant="outline" 
+                className="bg-dashboard-accent3/10 text-dashboard-accent3 border-dashboard-accent3/20"
+              >
                 {testResults.length} Tests Completed
               </Badge>
             </div>
-            <div className="glass-card p-4">
+            <div className="glass-card p-4 rounded-lg border border-dashboard-cardBorder bg-dashboard-card/50">
               <TestResultsTable 
                 results={testResults} 
                 type={testResults[0]?.test_type || 'system'} 
@@ -184,7 +195,7 @@ const TestRunner = () => {
 
         <Separator className="my-6 bg-dashboard-cardBorder" />
         
-        <div className="glass-card p-4">
+        <div className="glass-card p-4 rounded-lg border border-dashboard-cardBorder bg-dashboard-card/50">
           <div className="flex items-center gap-2 mb-4">
             <Terminal className="w-4 h-4 text-dashboard-accent2" />
             <h3 className="text-sm font-medium text-dashboard-text">Debug Console</h3>
