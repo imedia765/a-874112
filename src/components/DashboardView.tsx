@@ -61,7 +61,7 @@ const DashboardView = () => {
   });
 
   return (
-    <div className="w-full px-2 sm:px-0">
+    <div className="w-full px-2 sm:px-0 pt-[calc(6rem+1px)] lg:pt-[calc(8rem+1px)]">
       <header className="mb-8">
         <h1 className="text-2xl sm:text-3xl font-medium mb-2 text-dashboard-softBlue">Dashboard</h1>
         <p className="text-dashboard-text">Welcome back!</p>
