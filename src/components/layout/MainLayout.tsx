@@ -24,7 +24,7 @@ const MainLayout = ({
     <div className="min-h-screen bg-dashboard-dark">
       <MainHeader onToggleSidebar={onSidebarToggle} />
       
-      <div className="flex pt-24 lg:pt-32">
+      <div className="flex pt-[calc(6rem+1px)] lg:pt-[calc(8rem+1px)]">
         {/* Overlay for mobile */}
         {isSidebarOpen && (
           <div 
