@@ -26,6 +26,7 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
   const { data: paymentsData, isLoading, error } = useQuery({
     queryKey: ['payment-requests'],
     queryFn: async () => {
+      console.log('Fetching payment requests...');
       const { data, error, count } = await supabase
         .from('payment_requests')
         .select(`
@@ -39,7 +40,8 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
           collectors:members_collectors!payment_requests_collector_id_fkey(
             name,
             phone,
-            email
+            email,
+            member_number
           )
         `, { count: 'exact' })
         .order('created_at', { ascending: false });
@@ -49,9 +51,13 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
         throw error;
       }
 
+      console.log('Raw payments data:', data);
+
       // Group payments by collector name, ensuring we get the name from the joined data
       const groupedPayments = data?.reduce((acc, payment) => {
         const collectorName = payment.collectors?.[0]?.name || 'Unassigned';
+        console.log(`Processing payment for collector: ${collectorName}`, payment);
+        
         if (!acc[collectorName]) {
           acc[collectorName] = [];
         }
@@ -59,6 +65,7 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
         return acc;
       }, {} as Record<string, any[]>);
 
+      console.log('Grouped payments:', groupedPayments);
       return { groupedPayments, count };
     },
   });
@@ -123,8 +130,8 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
     return (
       <Card className="bg-dashboard-card border-dashboard-accent1/20 rounded-lg">
         <div className="p-6">
-          <h2 className="text-xl font-medium text-white mb-4">Payment History & Approvals</h2>
-          <div className="flex items-center gap-2 text-white">
+          <h2 className="text-xl font-medium text-dashboard-text mb-4">Payment History & Approvals</h2>
+          <div className="flex items-center gap-2 text-dashboard-text">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>Loading payment history...</span>
           </div>
@@ -137,7 +144,7 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
     return (
       <Card className="bg-dashboard-card border-dashboard-accent1/20 rounded-lg">
         <div className="p-6">
-          <h2 className="text-xl font-medium text-white mb-4">Payment History & Approvals</h2>
+          <h2 className="text-xl font-medium text-dashboard-text mb-4">Payment History & Approvals</h2>
           <div className="flex items-center gap-2 text-red-500">
             <AlertCircle className="h-4 w-4" />
             <span>Error loading payment history: {error.message}</span>
@@ -154,8 +161,8 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
     return (
       <Card className="bg-dashboard-card border-dashboard-accent1/20 rounded-lg">
         <div className="p-6">
-          <h2 className="text-xl font-medium text-white mb-4">Payment History & Approvals</h2>
-          <div className="flex items-center gap-2 text-white">
+          <h2 className="text-xl font-medium text-dashboard-text mb-4">Payment History & Approvals</h2>
+          <div className="flex items-center gap-2 text-dashboard-text">
             <AlertCircle className="h-4 w-4" />
             <span>No payment history found.</span>
           </div>
@@ -167,7 +174,7 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
   return (
     <Card className="bg-dashboard-card border-dashboard-accent1/20 rounded-lg">
       <div className="p-6">
-        <h2 className="text-xl font-medium text-white mb-4">Payment History & Approvals</h2>
+        <h2 className="text-xl font-medium text-dashboard-text mb-4">Payment History & Approvals</h2>
         <Accordion type="single" collapsible className="space-y-4">
           {collectors.map((collectorName) => (
             <AccordionItem
@@ -178,8 +185,8 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
               <AccordionTrigger className="px-4 py-3 hover:no-underline">
                 <div className="flex items-center justify-between w-full">
                   <div className="flex items-center gap-2">
-                    <span className="text-white font-medium">{collectorName}</span>
-                    <span className="text-sm text-gray-400">
+                    <span className="text-dashboard-text font-medium">{collectorName}</span>
+                    <span className="text-sm text-dashboard-muted">
                       ({groupedPayments[collectorName].length} payments)
                     </span>
                   </div>
