@@ -63,7 +63,7 @@ const DashboardView = () => {
   return (
     <div className="w-full px-2 sm:px-0">
       <header className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-medium mb-2 text-dashboard-softBlue">Dashboard</h1>
+        <h1 className="text-2xl sm:text-3xl font-medium mb-2 text-white">Dashboard</h1>
         <p className="text-dashboard-text">Welcome back!</p>
       </header>
       
