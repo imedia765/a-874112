@@ -7,11 +7,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { GitOperationProgress } from './git/GitOperationProgress';
-import { GitOperationLogs } from './git/GitOperationLogs';
-import { QuickPushButton } from './git/QuickPushButton';
-import { AddRepositoryDialog } from './git/AddRepositoryDialog';
-import { useGitOperations } from './git/useGitOperations';
+import { GitOperationProgress } from '@/components/system/git/GitOperationProgress';
+import { GitOperationLogs } from '@/components/system/git/GitOperationLogs';
+import { QuickPushButton } from '@/components/system/git/QuickPushButton';
+import { AddRepositoryDialog } from '@/components/system/git/AddRepositoryDialog';
+import { useGitOperations } from '@/components/system/git/useGitOperations';
+import { Input } from "@/components/ui/input";
 
 const GitOperationsCard = () => {
   const { toast } = useToast();
@@ -138,7 +139,7 @@ const GitOperationsCard = () => {
             >
               {repositories.map((repo) => (
                 <option key={repo.id} value={repo.id}>
-                  {repo.repo_url} ({repo.branch})
+                  {repo.source_url} ({repo.branch})
                 </option>
               ))}
             </select>

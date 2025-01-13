@@ -2,9 +2,10 @@ import { Check, Clock, AlertOctagon } from "lucide-react";
 
 interface PaymentStatusProps {
   status: string;
+  icon?: React.ReactNode;
 }
 
-export const PaymentStatus = ({ status }: PaymentStatusProps) => {
+export const PaymentStatus = ({ status, icon }: PaymentStatusProps) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
@@ -23,6 +24,7 @@ export const PaymentStatus = ({ status }: PaymentStatusProps) => {
   return (
     <div className="flex items-center space-x-3">
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold shadow-lg backdrop-blur-sm ${getStatusColor(status)}`}>
+        {icon && <span className="mr-2">{icon}</span>}
         {status}
       </span>
     </div>

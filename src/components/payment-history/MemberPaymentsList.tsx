@@ -1,6 +1,6 @@
-import { format } from "date-fns";
 import { Payment } from "./types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatDate } from "@/lib/dateFormat";
 
 interface MemberPaymentsListProps {
   payments: Payment[];
@@ -12,7 +12,10 @@ export const MemberPaymentsList = ({ payments }: MemberPaymentsListProps) => {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="text-dashboard-highlight">Payment #</TableHead>
             <TableHead className="text-dashboard-highlight">Date</TableHead>
+            <TableHead className="text-dashboard-highlight">Member Name</TableHead>
+            <TableHead className="text-dashboard-highlight">Member #</TableHead>
             <TableHead className="text-dashboard-highlight">Type</TableHead>
             <TableHead className="text-dashboard-highlight">Amount</TableHead>
             <TableHead className="text-dashboard-highlight">Status</TableHead>
@@ -21,8 +24,17 @@ export const MemberPaymentsList = ({ payments }: MemberPaymentsListProps) => {
         <TableBody>
           {payments.map((payment) => (
             <TableRow key={payment.id}>
+              <TableCell className="text-dashboard-text font-mono">
+                {payment.payment_number || payment.id.slice(0, 8)}
+              </TableCell>
               <TableCell className="text-dashboard-text">
-                {format(new Date(payment.date), 'PPP')}
+                {formatDate(payment.date)}
+              </TableCell>
+              <TableCell className="text-dashboard-text">
+                {payment.member_name || '-'}
+              </TableCell>
+              <TableCell className="text-dashboard-text">
+                {payment.member_number || '-'}
               </TableCell>
               <TableCell className="text-dashboard-text">{payment.type}</TableCell>
               <TableCell className="text-dashboard-accent3">

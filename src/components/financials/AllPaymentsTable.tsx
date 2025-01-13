@@ -2,19 +2,18 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
-import { Check, X, AlertCircle, Loader2 } from "lucide-react";
+import { Table, TableBody } from "@/components/ui/table";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { PaymentTableHeader } from "../payments-table/PaymentTableHeader";
+import { PaymentTableRow } from "../payments-table/PaymentTableRow";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface AllPaymentsTableProps {
   showHistory?: boolean;
@@ -27,7 +26,6 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
   const { data: paymentsData, isLoading, error } = useQuery({
     queryKey: ['payment-requests'],
     queryFn: async () => {
-      // Get all payment data without pagination
       const { data, error, count } = await supabase
         .from('payment_requests')
         .select(`
@@ -38,7 +36,7 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
             phone,
             email
           ),
-          collectors:members_collectors(
+          collectors:members_collectors!payment_requests_collector_id_fkey(
             name,
             phone,
             email
@@ -51,8 +49,17 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
         throw error;
       }
 
-      console.log('Fetched payment data:', data);
-      return { data, count };
+      // Group payments by collector name, ensuring we get the name from the joined data
+      const groupedPayments = data?.reduce((acc, payment) => {
+        const collectorName = payment.collectors?.[0]?.name || 'Unassigned';
+        if (!acc[collectorName]) {
+          acc[collectorName] = [];
+        }
+        acc[collectorName].push(payment);
+        return acc;
+      }, {} as Record<string, any[]>);
+
+      return { groupedPayments, count };
     },
   });
 
@@ -86,6 +93,32 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
     }
   };
 
+  const handleDelete = async (paymentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('payment_requests')
+        .delete()
+        .eq('id', paymentId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Payment Deleted",
+        description: "The payment record has been deleted successfully.",
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['payment-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['payment-statistics'] });
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete the payment record.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <Card className="bg-dashboard-card border-dashboard-accent1/20 rounded-lg">
@@ -114,9 +147,10 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
     );
   }
 
-  const payments = paymentsData?.data || [];
+  const groupedPayments = paymentsData?.groupedPayments || {};
+  const collectors = Object.keys(groupedPayments);
 
-  if (!payments.length) {
+  if (collectors.length === 0) {
     return (
       <Card className="bg-dashboard-card border-dashboard-accent1/20 rounded-lg">
         <div className="p-6">
@@ -134,93 +168,44 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
     <Card className="bg-dashboard-card border-dashboard-accent1/20 rounded-lg">
       <div className="p-6">
         <h2 className="text-xl font-medium text-white mb-4">Payment History & Approvals</h2>
-        <div className="rounded-md border border-white/10">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-white/10 hover:bg-white/5">
-                <TableHead className="text-dashboard-text">Date</TableHead>
-                <TableHead className="text-dashboard-text">Member</TableHead>
-                <TableHead className="text-dashboard-text">Member Number</TableHead>
-                <TableHead className="text-dashboard-text">Contact</TableHead>
-                <TableHead className="text-dashboard-text">Collector</TableHead>
-                <TableHead className="text-dashboard-text">Collector Contact</TableHead>
-                <TableHead className="text-dashboard-text">Type</TableHead>
-                <TableHead className="text-dashboard-text">Amount</TableHead>
-                <TableHead className="text-dashboard-text">Status</TableHead>
-                <TableHead className="text-dashboard-text">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {payments.map((payment) => (
-                <TableRow 
-                  key={payment.id}
-                  className="border-white/10 hover:bg-white/5"
-                >
-                  <TableCell className="text-dashboard-text">
-                    {format(new Date(payment.created_at), 'PPP')}
-                  </TableCell>
-                  <TableCell className="text-white font-medium">
-                    {payment.members?.full_name}
-                  </TableCell>
-                  <TableCell className="text-dashboard-text">
-                    {payment.members?.member_number}
-                  </TableCell>
-                  <TableCell className="text-dashboard-text">
-                    <div className="flex flex-col">
-                      <span>{payment.members?.phone}</span>
-                      <span className="text-sm text-gray-400">{payment.members?.email}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-dashboard-accent1">
-                    {payment.collectors?.name}
-                  </TableCell>
-                  <TableCell className="text-dashboard-text">
-                    <div className="flex flex-col">
-                      <span>{payment.collectors?.phone}</span>
-                      <span className="text-sm text-gray-400">{payment.collectors?.email}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="capitalize text-dashboard-text">
-                    {payment.payment_type}
-                  </TableCell>
-                  <TableCell className="text-dashboard-accent3">
-                    £{payment.amount}
-                  </TableCell>
-                  <TableCell>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                      ${payment.status === 'approved' ? 'bg-dashboard-accent3/20 text-dashboard-accent3' : 
-                        payment.status === 'rejected' ? 'bg-red-500/20 text-red-400' : 
-                        'bg-dashboard-warning/20 text-dashboard-warning'}`}>
-                      {payment.status}
+        <Accordion type="single" collapsible className="space-y-4">
+          {collectors.map((collectorName) => (
+            <AccordionItem
+              key={collectorName}
+              value={collectorName}
+              className="border border-white/10 rounded-lg overflow-hidden"
+            >
+              <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-medium">{collectorName}</span>
+                    <span className="text-sm text-gray-400">
+                      ({groupedPayments[collectorName].length} payments)
                     </span>
-                  </TableCell>
-                  <TableCell>
-                    {payment.status === 'pending' && (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 text-dashboard-accent3 hover:text-dashboard-accent3 hover:bg-dashboard-accent3/20"
-                          onClick={() => handleApproval(payment.id, true)}
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 text-red-400 hover:text-red-400 hover:bg-red-500/20"
-                          onClick={() => handleApproval(payment.id, false)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+                  </div>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 pb-4">
+                <div className="rounded-md border border-white/10">
+                  <Table>
+                    <PaymentTableHeader />
+                    <TableBody>
+                      {groupedPayments[collectorName].map((payment) => (
+                        <PaymentTableRow
+                          key={payment.id}
+                          payment={payment}
+                          onApprove={(id) => handleApproval(id, true)}
+                          onReject={(id) => handleApproval(id, false)}
+                          onDelete={handleDelete}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
       </div>
     </Card>
   );

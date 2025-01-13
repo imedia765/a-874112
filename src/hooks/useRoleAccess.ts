@@ -144,6 +144,10 @@ export const useRoleAccess = () => {
     refetchOnMount: true,
   });
 
+  const hasRole = (role: UserRole): boolean => {
+    return userRole === role;
+  };
+
   const canAccessTab = (tab: string): boolean => {
     console.log('Checking access for tab:', tab, 'User role:', userRole);
     
@@ -171,5 +175,6 @@ export const useRoleAccess = () => {
     roleLoading: roleLoading || !sessionData,
     error: roleError,
     canAccessTab,
+    hasRole
   };
 };

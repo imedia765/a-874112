@@ -2,13 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import MemberProfileCard from './MemberProfileCard';
-import MonthlyChart from './MonthlyChart';
-import PaymentCard from './PaymentCard';
+import SystemAnnouncements from './SystemAnnouncements';
+import PaymentDialog from './members/PaymentDialog';
 import PaymentHistoryTable from './PaymentHistoryTable';
-import { Users, Wallet, AlertCircle } from 'lucide-react';
+import { useState } from 'react';
 
 const DashboardView = () => {
   const { toast } = useToast();
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
   const { data: memberProfile, isError } = useQuery({
     queryKey: ['memberProfile'],
@@ -59,61 +60,40 @@ const DashboardView = () => {
     },
   });
 
-  // Query to fetch collection totals
-  const { data: collectionTotals } = useQuery({
-    queryKey: ['collectionTotals'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('members')
-        .select('yearly_payment_status, emergency_collection_status, emergency_collection_amount');
-
-      if (error) throw error;
-
-      const totalMembers = data.length;
-      const yearlyPending = data.filter(m => m.yearly_payment_status === 'pending').length;
-      const emergencyPending = data.filter(m => m.emergency_collection_status === 'pending').length;
-      const totalEmergencyAmount = data.reduce((sum, member) => sum + (member.emergency_collection_amount || 0), 0);
-      const collectedEmergencyAmount = data
-        .filter(m => m.emergency_collection_status === 'completed')
-        .reduce((sum, member) => sum + (member.emergency_collection_amount || 0), 0);
-
-      return {
-        yearlyPending,
-        emergencyPending,
-        totalEmergencyAmount,
-        collectedEmergencyAmount,
-        totalYearlyAmount: totalMembers * 40, // £40 per member
-        collectedYearlyAmount: (totalMembers - yearlyPending) * 40
-      };
-    }
-  });
-
-  const arePaymentsCompleted = memberProfile?.yearly_payment_status === 'completed' && 
-    memberProfile?.emergency_collection_status === 'completed';
-
   return (
-    <>
+    <div className="w-full px-2 sm:px-0">
       <header className="mb-8">
-        <h1 className="text-3xl font-medium mb-2 text-white">Dashboard</h1>
+        <h1 className="text-2xl sm:text-3xl font-medium mb-2 text-white">Dashboard</h1>
         <p className="text-dashboard-text">Welcome back!</p>
       </header>
       
-      <div className="grid gap-6">
-        <MemberProfileCard memberProfile={memberProfile} />
+      <div className="grid gap-4 sm:gap-6">
+        <div className="overflow-hidden">
+          <MemberProfileCard memberProfile={memberProfile} />
+        </div>
         
-        <PaymentCard 
-          annualPaymentStatus={(memberProfile?.yearly_payment_status || 'pending') as 'completed' | 'pending'}
-          emergencyCollectionStatus={(memberProfile?.emergency_collection_status || 'pending') as 'completed' | 'pending'}
-          emergencyCollectionAmount={memberProfile?.emergency_collection_amount}
-          annualPaymentDueDate={memberProfile?.yearly_payment_due_date}
-          emergencyCollectionDueDate={memberProfile?.emergency_collection_due_date}
-        />
+        <div className="overflow-hidden">
+          {memberProfile && (
+            <PaymentDialog 
+              isOpen={isPaymentDialogOpen}
+              onClose={() => setIsPaymentDialogOpen(false)}
+              memberId={memberProfile.id}
+              memberNumber={memberProfile.member_number}
+              memberName={memberProfile.full_name}
+              collectorInfo={null}
+            />
+          )}
+        </div>
 
-        <MonthlyChart />
+        <div className="overflow-hidden">
+          <SystemAnnouncements />
+        </div>
 
-        <PaymentHistoryTable />
+        <div className="overflow-x-auto">
+          <PaymentHistoryTable />
+        </div>
       </div>
-    </>
+    </div>
   );
 };
 

@@ -6,6 +6,7 @@ import MembersList from '@/components/MembersList';
 import MemberSearch from '@/components/MemberSearch';
 import SystemToolsView from '@/components/SystemToolsView';
 import CollectorFinancialsView from '@/components/CollectorFinancialsView';
+import PlanningView from '@/components/planning/PlanningView';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useToast } from "@/hooks/use-toast";
 import MainLayout from '@/components/layout/MainLayout';
@@ -123,6 +124,8 @@ const Index = () => {
         return <CollectorFinancialsView />;
       case 'system':
         return <SystemToolsView />;
+      case 'planning':
+        return <PlanningView />;
       default:
         return null;
     }

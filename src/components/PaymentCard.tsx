@@ -1,112 +1,77 @@
-import { Card } from "@/components/ui/card";
-import { format } from "date-fns";
-import { PaymentStatus } from "./financials/payment-card/PaymentStatus";
-import { PaymentDueDate } from "./financials/payment-card/PaymentDueDate";
+import React from 'react';
+import { Card } from './ui/card';
+import { Progress } from './ui/progress';
 
 interface PaymentCardProps {
-  annualPaymentStatus?: 'completed' | 'pending' | 'due' | 'overdue';
-  emergencyCollectionStatus?: 'completed' | 'pending' | 'due' | 'overdue';
-  emergencyCollectionAmount?: number;
+  annualPaymentStatus: 'pending' | 'completed';
+  emergencyCollectionStatus: 'pending' | 'completed';
+  emergencyCollectionAmount: number;
   annualPaymentDueDate?: string;
   emergencyCollectionDueDate?: string;
   lastAnnualPaymentDate?: string;
   lastEmergencyPaymentDate?: string;
   lastAnnualPaymentAmount?: number;
   lastEmergencyPaymentAmount?: number;
+  memberNumber: string;
 }
 
-const PaymentCard = ({
-  annualPaymentStatus = 'pending',
-  emergencyCollectionStatus = 'pending',
-  emergencyCollectionAmount = 0,
+const PaymentCard: React.FC<PaymentCardProps> = ({
+  annualPaymentStatus,
+  emergencyCollectionStatus,
+  emergencyCollectionAmount,
   annualPaymentDueDate,
   emergencyCollectionDueDate,
   lastAnnualPaymentDate,
   lastEmergencyPaymentDate,
   lastAnnualPaymentAmount,
-  lastEmergencyPaymentAmount
-}: PaymentCardProps) => {
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'January 1st, 2025';
-    try {
-      return format(new Date(dateString), 'MMMM do, yyyy');
-    } catch (e) {
-      return 'January 1st, 2025';
-    }
+  lastEmergencyPaymentAmount,
+  memberNumber
+}) => {
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: 'GBP'
+    }).format(amount);
   };
 
   return (
-    <Card className="dashboard-card">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Annual Payment Section */}
-        <div className="p-6 glass-card rounded-lg border border-dashboard-highlight/20 hover:border-dashboard-highlight/40 transition-colors">
-          <h3 className="text-xl font-semibold text-dashboard-highlight mb-4">Annual Payment</h3>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-3xl font-bold text-dashboard-accent2">£40</p>
-              <PaymentDueDate 
-                dueDate={annualPaymentDueDate} 
-                color="text-dashboard-highlight"
-              />
-              {lastAnnualPaymentDate && (
-                <div className="mt-3">
-                  <p className="text-sm text-dashboard-text font-medium">
-                    Last payment: {formatDate(lastAnnualPaymentDate)}
-                  </p>
-                  {lastAnnualPaymentAmount && (
-                    <p className="text-sm text-emerald-400 font-semibold">
-                      Amount: £{lastAnnualPaymentAmount}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-            <PaymentStatus status={annualPaymentStatus} />
-          </div>
-        </div>
+    <Card className="p-4 space-y-4">
+      <div>
+        <h3 className="text-lg font-semibold">Annual Payment</h3>
+        <Progress 
+          value={annualPaymentStatus === 'completed' ? 100 : 0} 
+          className="mt-2"
+        />
+        <p className="mt-1 text-sm">
+          Status: {annualPaymentStatus}
+        </p>
+        {lastAnnualPaymentAmount && (
+          <p className="text-sm">
+            Last Payment: {formatCurrency(lastAnnualPaymentAmount)}
+          </p>
+        )}
+        <p className="text-sm">
+          Due Date: {annualPaymentDueDate || 'No due date'}
+        </p>
+      </div>
 
-        {/* Emergency Collection Section */}
-        <div className="p-6 glass-card rounded-lg border border-dashboard-highlight/20 hover:border-dashboard-highlight/40 transition-colors">
-          <h3 className="text-xl font-semibold text-dashboard-highlight mb-4">Emergency Collection</h3>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-3xl font-bold text-dashboard-accent2">
-                £{emergencyCollectionAmount}
-              </p>
-              <PaymentDueDate 
-                dueDate={emergencyCollectionDueDate}
-                color="text-dashboard-highlight"
-              />
-              {lastEmergencyPaymentDate && (
-                <div className="mt-3">
-                  <p className="text-sm text-dashboard-text font-medium">
-                    Last payment: {formatDate(lastEmergencyPaymentDate)}
-                  </p>
-                  {lastEmergencyPaymentAmount && (
-                    <p className="text-sm text-emerald-400 font-semibold">
-                      Amount: £{lastEmergencyPaymentAmount}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-            <PaymentStatus status={emergencyCollectionStatus} />
-          </div>
-          <div className="text-sm text-dashboard-text font-medium">
-            {emergencyCollectionStatus === 'completed' 
-              ? 'Payment completed' 
-              : (
-                <div className="space-y-1">
-                  <p>Payment {emergencyCollectionStatus}</p>
-                  <p className="text-dashboard-muted">
-                    {emergencyCollectionStatus === 'overdue'
-                      ? 'Emergency collection payment is overdue'
-                      : 'One-time emergency collection payment required'}
-                  </p>
-                </div>
-              )}
-          </div>
-        </div>
+      <div>
+        <h3 className="text-lg font-semibold">Emergency Collection</h3>
+        <Progress 
+          value={emergencyCollectionStatus === 'completed' ? 100 : 0}
+          className="mt-2"
+        />
+        <p className="mt-1 text-sm">
+          Status: {emergencyCollectionStatus}
+        </p>
+        {lastEmergencyPaymentAmount && (
+          <p className="text-sm">
+            Last Payment: {formatCurrency(lastEmergencyPaymentAmount)}
+          </p>
+        )}
+        <p className="text-sm">
+          Due Date: {emergencyCollectionDueDate || 'No due date'}
+        </p>
       </div>
     </Card>
   );
