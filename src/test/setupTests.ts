@@ -27,13 +27,13 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 };
 
-// Mock IntersectionObserver with proper interface
+// Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
   root: Element | null = null;
   rootMargin: string = "0px";
   thresholds: ReadonlyArray<number> = [0];
   
-  constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+  constructor() {
     // Constructor implementation
   }
   
