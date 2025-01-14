@@ -9,15 +9,12 @@ import { Member } from "@/types/member";
 import { useToast } from "@/components/ui/use-toast";
 import MembersListHeader from './members/MembersListHeader';
 import MembersListContent from './members/MembersListContent';
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, Clock, AlertCircle } from "lucide-react";
 
 interface MembersListProps {
   searchTerm: string;
   userRole: string | null;
 }
 
-type PaymentFilter = 'all' | 'paid' | 'unpaid';
 const ITEMS_PER_PAGE = 20;
 
 const MembersList = ({ searchTerm, userRole }: MembersListProps) => {
@@ -25,7 +22,6 @@ const MembersList = ({ searchTerm, userRole }: MembersListProps) => {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isEditProfileDialogOpen, setIsEditProfileDialogOpen] = useState(false);
   const [page, setPage] = useState(1);
-  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all');
   const { toast } = useToast();
 
   const { data: collectorInfo } = useQuery({
@@ -49,7 +45,7 @@ const MembersList = ({ searchTerm, userRole }: MembersListProps) => {
   });
 
   const { data: membersData, isLoading, refetch } = useQuery({
-    queryKey: ['members', searchTerm, userRole, page, paymentFilter],
+    queryKey: ['members', searchTerm, userRole, page],
     queryFn: async () => {
       console.log('Fetching members with search term:', searchTerm);
       const from = (page - 1) * ITEMS_PER_PAGE;
@@ -61,13 +57,6 @@ const MembersList = ({ searchTerm, userRole }: MembersListProps) => {
       
       if (searchTerm) {
         query = query.or(`full_name.ilike.%${searchTerm}%,member_number.ilike.%${searchTerm}%,collector.ilike.%${searchTerm}%`);
-      }
-
-      // Apply payment status filter
-      if (paymentFilter === 'paid') {
-        query = query.eq('yearly_payment_status', 'completed');
-      } else if (paymentFilter === 'unpaid') {
-        query = query.or('yearly_payment_status.eq.pending,yearly_payment_status.eq.overdue');
       }
 
       if (userRole === 'collector') {
@@ -135,22 +124,6 @@ const MembersList = ({ searchTerm, userRole }: MembersListProps) => {
         members={members}
       />
 
-      <Tabs defaultValue="all" className="w-full" onValueChange={(value) => setPaymentFilter(value as PaymentFilter)}>
-        <TabsList className="grid w-full grid-cols-3 mb-4">
-          <TabsTrigger value="all" className="flex items-center gap-2">
-            All Members
-          </TabsTrigger>
-          <TabsTrigger value="paid" className="flex items-center gap-2">
-            <Check className="w-4 h-4 text-dashboard-accent3" />
-            Paid Members
-          </TabsTrigger>
-          <TabsTrigger value="unpaid" className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-dashboard-warning" />
-            Non-Paying
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
       <div className="overflow-hidden">
         <MembersListContent
           members={members}
@@ -190,7 +163,7 @@ const MembersList = ({ searchTerm, userRole }: MembersListProps) => {
         />
       )}
 
-      {userRole === 'collector' && collectorInfo && paymentFilter === 'paid' && (
+      {userRole === 'collector' && collectorInfo && (
         <div className="space-y-4 sm:space-y-6">
           <div className="overflow-hidden">
             <CollectorPaymentSummary collectorName={collectorInfo.name} />
