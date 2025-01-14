@@ -19,7 +19,7 @@ const BankDetails = ({ memberNumber }: BankDetailsProps) => {
         </div>
         <div>
           <p className="text-dashboard-muted">Sort Code</p>
-          <p className="text-dashboard-text font-medium">40-15-34</p>
+          <p className="text-dashboard-text font-semibold text-xl text-blue-400">40-15-34</p>
         </div>
         <div>
           <p className="text-dashboard-muted">Account Number</p>
