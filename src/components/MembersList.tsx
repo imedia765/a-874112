@@ -190,7 +190,7 @@ const MembersList = ({ searchTerm, userRole }: MembersListProps) => {
         />
       )}
 
-      {userRole === 'collector' && collectorInfo && (
+      {userRole === 'collector' && collectorInfo && paymentFilter === 'paid' && (
         <div className="space-y-4 sm:space-y-6">
           <div className="overflow-hidden">
             <CollectorPaymentSummary collectorName={collectorInfo.name} />
