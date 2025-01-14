@@ -23,7 +23,7 @@ const BankDetails = ({ memberNumber }: BankDetailsProps) => {
         </div>
         <div>
           <p className="text-dashboard-muted">Account Number</p>
-          <p className="text-dashboard-text font-medium">41024892</p>
+          <p className="text-dashboard-text font-semibold text-xl text-blue-400">41024892</p>
         </div>
         <div>
           <p className="text-dashboard-muted">Reference</p>
