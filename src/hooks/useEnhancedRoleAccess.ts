@@ -82,9 +82,14 @@ export const useEnhancedRoleAccess = () => {
     setIsLoading(isLoading);
   }, [isLoading, setIsLoading]);
 
+  const hasRole = useCallback((role: UserRole) => {
+    return data?.includes(role) || false;
+  }, [data]);
+
   return {
     userRoles: data,
     isLoading,
     error,
+    hasRole
   };
 };
