@@ -12,6 +12,8 @@ import { generateSystemCheckPDF } from '@/utils/systemPdfGenerator';
 import { SystemCheck } from '@/types/system';
 import { runAdditionalChecks } from './AdditionalSystemChecks';
 
+const MAINTENANCE_SETTINGS_ID = '00000000-0000-0000-0000-000000000001';
+
 const SystemHealthCheck = () => {
   const { toast } = useToast();
   const [isRunningChecks, setIsRunningChecks] = useState(false);
@@ -27,12 +29,19 @@ const SystemHealthCheck = () => {
 
   const fetchMaintenanceStatus = async () => {
     try {
+      console.log('Fetching maintenance status...');
       const { data, error } = await supabase
         .from('maintenance_settings')
         .select('is_enabled')
+        .eq('id', MAINTENANCE_SETTINGS_ID)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching maintenance status:', error);
+        throw error;
+      }
+      
+      console.log('Maintenance status data:', data);
       setMaintenanceEnabled(data?.is_enabled || false);
     } catch (error) {
       console.error('Error fetching maintenance status:', error);
@@ -43,6 +52,7 @@ const SystemHealthCheck = () => {
 
   const toggleMaintenance = async () => {
     try {
+      console.log('Toggling maintenance mode...');
       const newStatus = !maintenanceEnabled;
       const { error } = await supabase
         .from('maintenance_settings')
@@ -51,9 +61,12 @@ const SystemHealthCheck = () => {
           enabled_at: newStatus ? new Date().toISOString() : null,
           enabled_by: (await supabase.auth.getUser()).data.user?.id
         })
-        .eq('id', 1);
+        .eq('id', MAINTENANCE_SETTINGS_ID);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error toggling maintenance mode:', error);
+        throw error;
+      }
 
       setMaintenanceEnabled(newStatus);
       toast({
