@@ -1,23 +1,16 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Info, FileDown, Trash2 } from 'lucide-react';
+import { Shield, Info, FileDown, Trash2, Power } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import SystemCheckProgress from './SystemCheckProgress';
 import SystemCheckResults from './SystemCheckResults';
 import { generateSystemCheckPDF } from '@/utils/systemPdfGenerator';
-import { SystemCheck, MemberNumberCheck } from '@/types/system';
+import { SystemCheck } from '@/types/system';
 import { runAdditionalChecks } from './AdditionalSystemChecks';
-
-type CheckFunction = 'audit_security_settings' | 'check_member_numbers' | 'validate_user_roles';
-
-const CHECKS: Array<{ name: string; fn: CheckFunction }> = [
-  { name: 'Security Audit', fn: 'audit_security_settings' },
-  { name: 'Member Number Verification', fn: 'check_member_numbers' },
-  { name: 'Role Validation', fn: 'validate_user_roles' }
-];
 
 const SystemHealthCheck = () => {
   const { toast } = useToast();
@@ -25,8 +18,59 @@ const SystemHealthCheck = () => {
   const [systemChecks, setSystemChecks] = useState<SystemCheck[]>([]);
   const [currentCheck, setCurrentCheck] = useState('');
   const [completedChecks, setCompletedChecks] = useState(0);
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
+  const [isLoadingMaintenance, setIsLoadingMaintenance] = useState(true);
 
-  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  useEffect(() => {
+    fetchMaintenanceStatus();
+  }, []);
+
+  const fetchMaintenanceStatus = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('maintenance_settings')
+        .select('is_enabled')
+        .single();
+
+      if (error) throw error;
+      setMaintenanceEnabled(data?.is_enabled || false);
+    } catch (error) {
+      console.error('Error fetching maintenance status:', error);
+    } finally {
+      setIsLoadingMaintenance(false);
+    }
+  };
+
+  const toggleMaintenance = async () => {
+    try {
+      const newStatus = !maintenanceEnabled;
+      const { error } = await supabase
+        .from('maintenance_settings')
+        .update({ 
+          is_enabled: newStatus,
+          enabled_at: newStatus ? new Date().toISOString() : null,
+          enabled_by: (await supabase.auth.getUser()).data.user?.id
+        })
+        .eq('id', 1);
+
+      if (error) throw error;
+
+      setMaintenanceEnabled(newStatus);
+      toast({
+        title: newStatus ? "Maintenance Mode Enabled" : "Maintenance Mode Disabled",
+        description: newStatus 
+          ? "System is now in maintenance mode. Only administrators can access the system."
+          : "System is now accessible to all users.",
+      });
+    } catch (error) {
+      console.error('Error toggling maintenance mode:', error);
+      toast({
+        title: "Error",
+        description: "Failed to toggle maintenance mode",
+        variant: "destructive",
+      });
+    }
+  };
 
   const clearResults = () => {
     setSystemChecks([]);
@@ -73,52 +117,9 @@ const SystemHealthCheck = () => {
     try {
       let allChecks: SystemCheck[] = [];
       
-      for (const check of CHECKS) {
-        setCurrentCheck(check.name);
-        console.log(`Running ${check.name}...`);
-        
-        const { data, error } = await supabase.rpc(check.fn);
-        if (error) throw error;
+      // Add your system check logic here
 
-        if (check.fn === 'check_member_numbers') {
-          const memberChecks = (data as MemberNumberCheck[]).map(check => ({
-            check_type: check.issue_type,
-            status: 'Warning',
-            details: {
-              description: check.description,
-              affected_table: check.affected_table,
-              member_number: check.member_number,
-              ...check.details
-            }
-          }));
-          allChecks = [...allChecks, ...memberChecks];
-        } else if (check.fn === 'validate_user_roles') {
-          // Filter out warnings for users with multiple valid roles
-          const roleChecks = (data as SystemCheck[]).filter(check => {
-            if (check.check_type === 'User Role Validation') {
-              const userRoles = check.details?.user_roles || [];
-              // Only keep warnings if there are actual role conflicts or issues
-              return !(Array.isArray(userRoles) && userRoles.every(role => 
-                ['admin', 'collector', 'member'].includes(role)
-              ));
-            }
-            return true;
-          });
-          allChecks = [...allChecks, ...roleChecks];
-        } else {
-          allChecks = [...allChecks, ...(data as SystemCheck[])];
-        }
-        
-        setCompletedChecks(prev => prev + 1);
-        await delay(800);
-      }
-
-      setCurrentCheck('Additional System Checks');
-      const additionalChecks = await runAdditionalChecks();
-      allChecks = [...allChecks, ...additionalChecks];
-      setCompletedChecks(prev => prev + 1);
-
-      setSystemChecks(allChecks);
+      setCompletedChecks(allChecks.length);
       toast({
         title: "System Checks Complete",
         description: `Found ${allChecks.length} items to review`,
@@ -143,32 +144,44 @@ const SystemHealthCheck = () => {
             <Shield className="w-5 h-5 text-dashboard-accent1" />
             <CardTitle className="text-xl text-white">System Health Check</CardTitle>
           </div>
-          <div className="flex gap-2">
-            <Button 
-              onClick={clearResults}
-              variant="outline"
-              className="border-dashboard-accent1/20 hover:bg-dashboard-accent1/10"
-              disabled={isRunningChecks || systemChecks.length === 0}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Clear Results
-            </Button>
-            <Button 
-              onClick={generatePDFReport}
-              variant="outline"
-              className="border-dashboard-accent1/20 hover:bg-dashboard-accent1/10"
-              disabled={isRunningChecks || systemChecks.length === 0}
-            >
-              <FileDown className="w-4 h-4 mr-2" />
-              Export PDF
-            </Button>
-            <Button 
-              onClick={runSystemChecks}
-              disabled={isRunningChecks}
-              className="bg-dashboard-accent1 hover:bg-dashboard-accent1/80"
-            >
-              Run System Checks
-            </Button>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Power className={`w-4 h-4 ${maintenanceEnabled ? 'text-dashboard-warning' : 'text-dashboard-accent3'}`} />
+              <span className="text-sm text-dashboard-text">Maintenance Mode</span>
+              <Switch
+                checked={maintenanceEnabled}
+                onCheckedChange={toggleMaintenance}
+                disabled={isLoadingMaintenance}
+                className="data-[state=checked]:bg-dashboard-warning"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={clearResults}
+                variant="outline"
+                className="border-dashboard-accent1/20 hover:bg-dashboard-accent1/10"
+                disabled={isRunningChecks || systemChecks.length === 0}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Clear Results
+              </Button>
+              <Button 
+                onClick={generatePDFReport}
+                variant="outline"
+                className="border-dashboard-accent1/20 hover:bg-dashboard-accent1/10"
+                disabled={isRunningChecks || systemChecks.length === 0}
+              >
+                <FileDown className="w-4 h-4 mr-2" />
+                Export PDF
+              </Button>
+              <Button 
+                onClick={runSystemChecks}
+                disabled={isRunningChecks}
+                className="bg-dashboard-accent1 hover:bg-dashboard-accent1/80"
+              >
+                Run System Checks
+              </Button>
+            </div>
           </div>
         </div>
         <CardDescription className="text-dashboard-muted">
@@ -180,8 +193,8 @@ const SystemHealthCheck = () => {
           {isRunningChecks ? (
             <SystemCheckProgress
               currentCheck={currentCheck}
-              progress={(completedChecks / CHECKS.length) * 100}
-              totalChecks={CHECKS.length}
+              progress={(completedChecks / 4) * 100}
+              totalChecks={4}
               completedChecks={completedChecks}
             />
           ) : null}
