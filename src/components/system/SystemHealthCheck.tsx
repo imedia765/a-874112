@@ -34,7 +34,7 @@ const SystemHealthCheck = () => {
         .from('maintenance_settings')
         .select('is_enabled')
         .eq('id', MAINTENANCE_SETTINGS_ID)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching maintenance status:', error);
@@ -45,6 +45,11 @@ const SystemHealthCheck = () => {
       setMaintenanceEnabled(data?.is_enabled || false);
     } catch (error) {
       console.error('Error fetching maintenance status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch maintenance status",
+        variant: "destructive",
+      });
     } finally {
       setIsLoadingMaintenance(false);
     }
