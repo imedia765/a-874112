@@ -67,7 +67,7 @@ export const useEnhancedRoleAccess = () => {
       onError: (error: Error) => {
         console.error('Role loading error:', error);
         setError(error);
-        setIsLoading(false); // Ensure loading state is cleared on error
+        setIsLoading(false);
         toast({
           title: "Error loading roles",
           description: "There was a problem loading user roles. Please try again.",
@@ -82,8 +82,10 @@ export const useEnhancedRoleAccess = () => {
     setIsLoading(isLoading);
   }, [isLoading, setIsLoading]);
 
-  const hasRole = useCallback((role: UserRole) => {
-    return data?.includes(role) || false;
+  const hasRole = useCallback((role: UserRole): boolean => {
+    if (!data) return false;
+    console.log('Checking role:', role, 'against user roles:', data);
+    return data.includes(role);
   }, [data]);
 
   return {
