@@ -49,7 +49,7 @@ const PaymentHistoryTable = () => {
       
       if (!session?.user) {
         console.error('No user session found');
-        throw new Error('No user logged in');
+        throw new Error('Please log in to view payment history');
       }
 
       const memberNumber = session.user.user_metadata.member_number;
@@ -64,28 +64,62 @@ const PaymentHistoryTable = () => {
         throw new Error('Member number not found');
       }
 
-      if (userRole === 'collector') {
-        console.log('Fetching collector payments for member number:', memberNumber);
+      try {
+        if (userRole === 'collector') {
+          console.log('Fetching collector payments for member number:', memberNumber);
+          
+          const { data: collectorData, error: collectorError } = await supabase
+            .from('members_collectors')
+            .select('id')
+            .eq('member_number', memberNumber)
+            .maybeSingle();
+
+          if (collectorError) {
+            console.error('Error fetching collector:', collectorError);
+            throw new Error('Failed to fetch collector information');
+          }
+
+          if (!collectorData) {
+            console.error('No collector found for member number:', memberNumber);
+            return [];
+          }
+
+          console.log('Found collector:', collectorData);
+
+          const { data: paymentsData, error: paymentsError } = await supabase
+            .from('payment_requests')
+            .select(`
+              *,
+              members!payment_requests_member_id_fkey (
+                full_name,
+                member_number
+              )
+            `)
+            .eq('collector_id', collectorData.id)
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false });
+
+          if (paymentsError) {
+            console.error('Error fetching payments:', paymentsError);
+            throw new Error('Failed to fetch payment requests');
+          }
+
+          console.log('Collector payments:', paymentsData);
+          
+          return paymentsData?.map(payment => ({
+            id: payment.id,
+            date: payment.created_at,
+            type: payment.payment_type,
+            amount: payment.amount,
+            status: payment.status,
+            member_name: payment.members?.full_name,
+            member_number: payment.members?.member_number,
+            payment_number: payment.payment_number
+          })) || [];
+        }
         
-        const { data: collectorData, error: collectorError } = await supabase
-          .from('members_collectors')
-          .select('id')
-          .eq('member_number', memberNumber)
-          .maybeSingle();
-
-        if (collectorError) {
-          console.error('Error fetching collector:', collectorError);
-          throw collectorError;
-        }
-
-        if (!collectorData) {
-          console.error('No collector found for member number:', memberNumber);
-          return [];
-        }
-
-        console.log('Found collector:', collectorData);
-
-        const { data: paymentsData, error: paymentsError } = await supabase
+        console.log('Fetching member payments for:', memberNumber);
+        const { data, error: paymentsError } = await supabase
           .from('payment_requests')
           .select(`
             *,
@@ -94,18 +128,16 @@ const PaymentHistoryTable = () => {
               member_number
             )
           `)
-          .eq('collector_id', collectorData.id)
-          .eq('status', 'pending')
+          .eq('member_number', memberNumber)
           .order('created_at', { ascending: false });
 
         if (paymentsError) {
-          console.error('Error fetching payments:', paymentsError);
-          throw paymentsError;
+          console.error('Error fetching payment requests:', paymentsError);
+          throw new Error('Failed to fetch payment history');
         }
 
-        console.log('Collector payments:', paymentsData);
-        
-        return paymentsData?.map(payment => ({
+        console.log('Member payments:', data);
+        return data?.map(payment => ({
           id: payment.id,
           date: payment.created_at,
           type: payment.payment_type,
@@ -115,39 +147,13 @@ const PaymentHistoryTable = () => {
           member_number: payment.members?.member_number,
           payment_number: payment.payment_number
         })) || [];
+      } catch (error: any) {
+        console.error('Error in payment history fetch:', error);
+        throw new Error(error.message || 'Failed to fetch payment history');
       }
-      
-      console.log('Fetching member payments for:', memberNumber);
-      const { data, error: paymentsError } = await supabase
-        .from('payment_requests')
-        .select(`
-          *,
-          members!payment_requests_member_id_fkey (
-            full_name,
-            member_number
-          )
-        `)
-        .eq('member_number', memberNumber)
-        .order('created_at', { ascending: false });
-
-      if (paymentsError) {
-        console.error('Error fetching payment requests:', paymentsError);
-        throw paymentsError;
-      }
-
-      console.log('Member payments:', data);
-      return data?.map(payment => ({
-        id: payment.id,
-        date: payment.created_at,
-        type: payment.payment_type,
-        amount: payment.amount,
-        status: payment.status,
-        member_name: payment.members?.full_name,
-        member_number: payment.members?.member_number,
-        payment_number: payment.payment_number
-      })) || [];
     },
     retry: 1,
+    retryDelay: 1000
   });
 
   if (isLoading) {
@@ -168,7 +174,7 @@ const PaymentHistoryTable = () => {
         <h3 className="text-xl font-semibold mb-4 text-dashboard-highlight">Payment History</h3>
         <div className="flex items-center gap-2 text-red-500">
           <AlertCircle className="h-4 w-4" />
-          <span>Error loading payment history: {error.message}</span>
+          <span>Error: {error.message}</span>
         </div>
       </div>
     );

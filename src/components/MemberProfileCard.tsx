@@ -1,20 +1,23 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Member } from "@/types/member";
+import { Collector } from "@/types/collector";
 import ProfileHeader from "./profile/ProfileHeader";
 import ProfileAvatar from "./profile/ProfileAvatar";
 import ContactInfo from "./profile/ContactInfo";
 import AddressDetails from "./profile/AddressDetails";
 import MembershipDetails from "./profile/MembershipDetails";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Edit, CreditCard, UserPlus } from "lucide-react";
 import EditProfileDialog from "./members/EditProfileDialog";
 import PaymentDialog from "./members/PaymentDialog";
 import AddFamilyMemberDialog from "./members/AddFamilyMemberDialog";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import FamilyMemberCard from "./members/FamilyMemberCard";
+import ProfileActions from "./members/profile/ProfileActions";
+import DiagnosticsPanel from "./members/profile/DiagnosticsPanel";
+import FamilyMembersSection from "./members/profile/FamilyMembersSection";
 
 interface MemberProfileCardProps {
   memberProfile: Member | null;
@@ -25,6 +28,7 @@ const MemberProfileCard = ({ memberProfile }: MemberProfileCardProps) => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showAddFamilyDialog, setShowAddFamilyDialog] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const { data: collectorInfo } = useQuery({
     queryKey: ['collectorInfo', memberProfile?.collector],
@@ -33,12 +37,12 @@ const MemberProfileCard = ({ memberProfile }: MemberProfileCardProps) => {
       
       const { data, error } = await supabase
         .from('members_collectors')
-        .select('id, name, phone, prefix, number, email, active, created_at, updated_at')
+        .select('id, name, phone, prefix, number, email, active, created_at, updated_at, member_number')
         .eq('name', memberProfile.collector)
-        .single();
+        .maybeSingle();
         
       if (error) throw error;
-      return data;
+      return data as Collector;
     },
     enabled: !!memberProfile?.collector
   });
@@ -57,6 +61,37 @@ const MemberProfileCard = ({ memberProfile }: MemberProfileCardProps) => {
       return data;
     },
     enabled: !!memberProfile?.id
+  });
+
+  const { data: diagnostics } = useQuery({
+    queryKey: ['memberDiagnostics', memberProfile?.id],
+    queryFn: async () => {
+      if (!memberProfile?.id) return null;
+      
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', memberProfile.auth_user_id);
+
+      const { data: payments } = await supabase
+        .from('payment_requests')
+        .select('*')
+        .eq('member_id', memberProfile.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      return {
+        roles: roles || [],
+        recentPayments: payments || [],
+        accountStatus: {
+          isVerified: memberProfile.verified,
+          hasAuthId: !!memberProfile.auth_user_id,
+          membershipStatus: memberProfile.status,
+          paymentStatus: memberProfile.yearly_payment_status,
+        }
+      };
+    },
+    enabled: !!memberProfile?.id && !!memberProfile?.auth_user_id
   });
 
   if (!memberProfile) {
@@ -89,26 +124,13 @@ const MemberProfileCard = ({ memberProfile }: MemberProfileCardProps) => {
                 <div className="space-y-4">
                   <ContactInfo memberProfile={memberProfile} />
                   <AddressDetails memberProfile={memberProfile} />
-                  
-                  <div className="flex flex-col gap-2">
-                    {(userRole === 'collector' || userRole === 'admin' || userRole === 'member') && (
-                      <Button
-                        onClick={() => setShowEditDialog(true)}
-                        className="w-full bg-dashboard-accent2 hover:bg-dashboard-accent2/80 text-white transition-colors"
-                      >
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit Profile
-                      </Button>
-                    )}
-                    
-                    <Button
-                      onClick={() => setShowPaymentDialog(true)}
-                      className="w-full bg-dashboard-accent1 hover:bg-dashboard-accent1/80 text-white transition-colors"
-                    >
-                      <CreditCard className="w-4 h-4 mr-2" />
-                      Make Payment
-                    </Button>
-                  </div>
+                  <ProfileActions 
+                    userRole={userRole}
+                    onEditClick={() => setShowEditDialog(true)}
+                    onPaymentClick={() => setShowPaymentDialog(true)}
+                    collectorInfo={collectorInfo}
+                    memberNumber={memberProfile.member_number}
+                  />
                 </div>
 
                 <div className="space-y-4">
@@ -120,38 +142,35 @@ const MemberProfileCard = ({ memberProfile }: MemberProfileCardProps) => {
               </div>
             </div>
           </div>
+
+          {userRole === 'admin' && (
+            <div className="mt-6 border-t border-white/10 pt-4">
+              <Button
+                onClick={() => setShowDiagnostics(!showDiagnostics)}
+                variant="ghost"
+                className="w-full justify-between text-dashboard-text hover:text-white"
+              >
+                User Diagnostics
+                {showDiagnostics ? (
+                  <ChevronUp className="w-4 h-4 ml-2" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                )}
+              </Button>
+              
+              <DiagnosticsPanel 
+                diagnostics={diagnostics}
+                showDiagnostics={showDiagnostics}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Family Members Card */}
-      <Card className="bg-dashboard-card border-white/10 shadow-lg hover:border-dashboard-accent1/50 transition-all duration-300">
-        <CardContent className="pt-6">
-          <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-            <h3 className="text-dashboard-muted text-lg font-medium">Family Members</h3>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAddFamilyDialog(true)}
-              className="bg-dashboard-accent2/10 hover:bg-dashboard-accent2/20 text-dashboard-accent2 border-dashboard-accent2/20 hover:border-dashboard-accent2/30"
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Add Family Member
-            </Button>
-          </div>
-          <div className="space-y-2 overflow-x-auto">
-            {familyMembers?.map((familyMember) => (
-              <FamilyMemberCard
-                key={familyMember.id}
-                name={familyMember.full_name}
-                relationship={familyMember.relationship}
-                dob={familyMember.date_of_birth?.toString() || null}
-                gender={familyMember.gender}
-                memberNumber={familyMember.family_member_number}
-              />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <FamilyMembersSection 
+        familyMembers={familyMembers || []}
+        onAddFamilyMember={() => setShowAddFamilyDialog(true)}
+      />
 
       <EditProfileDialog
         member={memberProfile}

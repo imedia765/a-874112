@@ -22,19 +22,60 @@ export const useLoginForm = () => {
       const isMobile = window.innerWidth <= 768;
       console.log('Starting login process on device type:', isMobile ? 'mobile' : 'desktop');
 
-      // Skip clearing auth state on login attempt
+      // Check maintenance mode first
+      const { data: maintenanceData, error: maintenanceError } = await supabase
+        .from('maintenance_settings')
+        .select('is_enabled, message')
+        .single();
+
+      if (maintenanceError) {
+        console.error('Error checking maintenance mode:', maintenanceError);
+        throw new Error('Unable to verify system status');
+      }
+
+      // If in maintenance, verify if user is admin before proceeding
+      if (maintenanceData?.is_enabled) {
+        console.log('System in maintenance mode, checking admin credentials');
+        const { email, password } = getAuthCredentials(memberNumber);
+        
+        // Try admin login
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (signInError) {
+          console.log('Login failed during maintenance mode');
+          throw new Error(maintenanceData.message || 'System is temporarily offline for maintenance');
+        }
+
+        // Check if user is admin
+        const { data: roles } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', signInData.user.id);
+
+        const isAdmin = roles?.some(r => r.role === 'admin');
+        
+        if (!isAdmin) {
+          console.log('Non-admin access attempted during maintenance');
+          throw new Error(maintenanceData.message || 'System is temporarily offline for maintenance');
+        }
+
+        console.log('Admin access granted during maintenance mode');
+      }
+
+      // Regular login flow continues
       const member = await verifyMember(memberNumber);
       const { email, password } = getAuthCredentials(memberNumber);
       
       console.log('Attempting sign in with:', { email });
       
-      // Try to sign in
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      // If sign in fails due to invalid credentials, try to sign up
       if (signInError && signInError.message.includes('Invalid login credentials')) {
         console.log('Sign in failed, attempting signup');
         
@@ -59,7 +100,6 @@ export const useLoginForm = () => {
 
           console.log('Member updated and role assigned, attempting final sign in');
           
-          // Final sign in attempt after successful signup
           const { data: finalSignInData, error: finalSignInError } = await supabase.auth.signInWithPassword({
             email,
             password,
@@ -78,11 +118,9 @@ export const useLoginForm = () => {
         await handleSignInError(signInError, email, password);
       }
 
-      // Clear any existing queries before proceeding
       await queryClient.cancelQueries();
       await queryClient.clear();
 
-      // Verify session is established
       console.log('Verifying session...');
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
@@ -104,7 +142,6 @@ export const useLoginForm = () => {
         description: "Welcome back!",
       });
 
-      // Use replace to prevent back button issues
       if (isMobile) {
         window.location.href = '/';
       } else {
@@ -113,21 +150,9 @@ export const useLoginForm = () => {
     } catch (error: any) {
       console.error('Login error:', error);
       
-      let errorMessage = 'An unexpected error occurred';
-      
-      if (error.message.includes('Member not found')) {
-        errorMessage = 'Member number not found or inactive';
-      } else if (error.message.includes('Invalid login credentials')) {
-        errorMessage = 'Invalid member number. Please try again.';
-      } else if (error.message.includes('Email not confirmed')) {
-        errorMessage = 'Please verify your email before logging in';
-      } else if (error.message.includes('refresh_token_not_found')) {
-        errorMessage = 'Session expired. Please try logging in again.';
-      }
-      
       toast({
         title: "Login failed",
-        description: errorMessage,
+        description: error.message || 'An unexpected error occurred',
         variant: "destructive",
       });
     } finally {
